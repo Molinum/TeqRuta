@@ -14,31 +14,51 @@ Proyecto de la asignatura Desarrollo de Aplicaciones Móviles (DSY1105), Duoc UC
 
 En desarrollo (Evaluación Parcial 2).
 
-Implementado hasta ahora:
+### Funcionalidades implementadas
 
-- Proyecto base en Android Studio con Jetpack Compose.
-- Dependencias configuradas: Room (con KSP), Navigation Compose, ViewModel y servicios de ubicación.
-- Plan de desarrollo y requisitos funcionales en `docs/`.
+- Inicio de sesión local con cuatro perfiles (técnico, jefe de servicio, gerencia y administrador) y navegación según el rol.
+- Formularios con validación por campo, ícono y mensaje de error.
+- Técnico:
+  - Iniciar jornada con vehículo, km inicial, foto del odómetro y ubicación GPS.
+  - Registrar la salida hacia una clínica, con aviso si el trayecto no tiene tramo oficial.
+  - Registrar la llegada con el km del odómetro; se calcula el costo del traslado y se marca como OK, desviación o no catalogado.
+  - Volver a la sede y cerrar la jornada con foto obligatoria del odómetro.
+  - Resumen de la jornada en curso: traslados, km recorridos y costo acumulado.
+- Cálculo de costo: km oficiales ÷ rendimiento del vehículo × precio del litro + peaje. Se marca desviación cuando los km declarados superan a los oficiales en más de 15% y en más de 2 km.
+- Base de datos local con Room, precargada con datos de ejemplo (sede, clínicas, tramos, vehículos, tarifa y usuarios).
+- Recursos nativos: GPS y cámara.
+- Animaciones: mensajes de error, transiciones entre pantallas, cambios de estado y contador del costo.
 
-## Funcionalidades planificadas
+### Pendiente
 
-- Inicio de sesión local con cuatro perfiles: técnico, jefe de servicio, gerencia y administrador.
-- Técnico: iniciar jornada, registrar salida y llegada a cada clínica, cerrar jornada y ver su historial.
-- Cálculo del costo de cada traslado y marca de desviación cuando los km declarados superan en más de 15% a los oficiales.
-- Jefe: revisar, validar o rechazar las jornadas de su equipo.
+- Historial de jornadas del técnico.
+- Jefe: revisar, validar o rechazar jornadas.
 - Gerencia: costo de traslados por cliente, técnico y vehículo.
 - Administrador: mantenedores de destinos, vehículos, tramos, tarifa de combustible y usuarios.
-- Recursos nativos: GPS (ubicación al iniciar y llegar) y cámara (foto del odómetro).
+
+Las pantallas de jefe, gerencia y administrador existen pero aún muestran "Próximamente".
 
 El detalle está en [`docs/TeqRuta_notas.md`](docs/TeqRuta_notas.md) (plan de desarrollo) y [`docs/TeqRuta_requisitos.md`](docs/TeqRuta_requisitos.md) (requisitos funcionales).
+
+## Usuarios de prueba
+
+| Rol | Correo | Contraseña |
+|---|---|---|
+| Técnico | tecnico@teqmed.cl | tecnico123 |
+| Técnico | tecnico2@teqmed.cl | tecnico123 |
+| Jefe de servicio | jefe@teqmed.cl | jefe123 |
+| Gerencia | gerencia@teqmed.cl | gerencia123 |
+| Administrador | admin@teqmed.cl | admin123 |
+| Usuario desactivado | inactivo@teqmed.cl | inactivo123 |
 
 ## Tecnologías
 
 - Kotlin y Jetpack Compose (Material 3)
 - Arquitectura MVVM
-- Room para persistencia local
+- Room (sobre SQLite) para persistencia local
 - Navigation Compose
-- Google Play Services Location
+- Google Play Services Location (GPS)
+- Cámara del dispositivo mediante FileProvider
 
 Toda la información se guarda localmente en el dispositivo; la aplicación no se conecta a servicios externos.
 
@@ -58,3 +78,8 @@ Pasos:
    ```
 2. Abrir la carpeta `TeqRuta` en Android Studio y esperar a que termine la sincronización de Gradle.
 3. Seleccionar un emulador o dispositivo y presionar **Run**.
+4. Iniciar sesión con alguno de los usuarios de prueba.
+
+Para probar el GPS en el emulador: abrir los controles extendidos del emulador (botón **⋯**) → **Location**, elegir un punto y presionar **Set location**. Si se niega el permiso de ubicación, los traslados se registran igual, marcados sin ubicación.
+
+Si la app ya estaba instalada de una versión anterior, desinstalarla primero para que la base de datos se cree con los datos de ejemplo.

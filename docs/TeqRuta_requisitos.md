@@ -119,7 +119,7 @@ Requieren conexión con sistemas externos, que el docente excluyó de esta etapa
 | ID | Regla |
 |---|---|
 | RN-01 | **Costo de un traslado** = `(km oficiales ÷ rendimiento del vehículo [km/L]) × precio del litro vigente + peaje del tramo`. |
-| RN-02 | **Desviación:** si `(km declarados − km oficiales) ÷ km oficiales > 15%`, el traslado se marca con **desviación**. El costo se calcula igual con los km oficiales. |
+| RN-02 | **Desviación:** si `(km declarados − km oficiales) ÷ km oficiales > 15%` **y** la diferencia supera los **2 km**, el traslado se marca con **desviación**. La tolerancia de 2 km evita falsos positivos en tramos urbanos cortos, ya que el odómetro registra km enteros. El costo se calcula igual con los km oficiales. |
 | RN-03 | **Traslado no catalogado:** si no existe un tramo oficial, el costo se calcula con los km declarados y el traslado se marca como **no catalogado**. |
 | RN-04 | **Auditoría:** el costo usa el tramo y la tarifa **vigentes a la fecha del traslado**, y el traslado guarda una copia de los valores usados (km oficiales, peaje, precio del litro y rendimiento). Un cambio posterior de tarifas no altera los traslados ya registrados. |
 | RN-05 | El km de llegada debe ser **mayor** que el km de salida del traslado. El km inicial de una jornada no puede ser **menor** que el km final de la última jornada del mismo vehículo. |
