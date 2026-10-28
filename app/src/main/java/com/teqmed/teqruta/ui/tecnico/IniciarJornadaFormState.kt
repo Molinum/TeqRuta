@@ -9,7 +9,10 @@ data class IniciarJornadaFormState(
     val kmInicial: String = "",
     /** Km final de la última jornada del vehículo elegido, si existe. */
     val ultimoKm: Int? = null,
+    /** Ruta de la foto del odómetro, obligatoria al iniciar (RN-07). */
+    val fotoPath: String? = null,
     val vehiculoError: String? = null,
+    val fotoError: String? = null,
     val kmError: String? = null,
     val errorGeneral: String? = null,
     val guardando: Boolean = false,

@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.teqmed.teqruta.ui.components.DropdownField
 import com.teqmed.teqruta.ui.components.ErrorCard
+import com.teqmed.teqruta.ui.components.FotoOdometroField
 import com.teqmed.teqruta.ui.components.TeqRutaTopBar
 import com.teqmed.teqruta.ui.components.ValidatedTextField
 import com.teqmed.teqruta.ui.util.formatearKm
@@ -106,6 +107,13 @@ fun IniciarJornadaScreen(
                 imeAction = ImeAction.Done,
                 onImeAction = viewModel::onSubmit,
                 enabled = !estado.guardando
+            )
+
+            FotoOdometroField(
+                fotoPath = estado.fotoPath,
+                onFotoTomada = viewModel::onFotoTomada,
+                obligatoria = true,
+                error = estado.fotoError
             )
 
             ErrorCard(estado.errorGeneral)

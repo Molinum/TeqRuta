@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.teqmed.teqruta.data.local.entity.Vehiculo
 import com.teqmed.teqruta.data.repository.CatalogoRepository
 import com.teqmed.teqruta.data.repository.JornadaRepository
+import com.teqmed.teqruta.device.LocationProvider
 import com.teqmed.teqruta.domain.validation.JornadaValidator
 import com.teqmed.teqruta.domain.validation.mensajeError
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +17,8 @@ import kotlinx.coroutines.launch
 class IniciarJornadaViewModel(
     private val tecnicoId: Long,
     private val jornadaRepository: JornadaRepository,
-    private val catalogoRepository: CatalogoRepository
+    private val catalogoRepository: CatalogoRepository,
+    private val locationProvider: LocationProvider
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(IniciarJornadaFormState())
@@ -52,6 +54,10 @@ class IniciarJornadaViewModel(
         _estado.update { it.copy(kmInicial = valor.filter(Char::isDigit), kmError = null, errorGeneral = null) }
     }
 
+    fun onFotoTomada(path: String) {
+        _estado.update { it.copy(fotoPath = path, fotoError = null) }
+    }
+
     fun onSubmit() {
         val actual = _estado.value
         if (actual.guardando) return
@@ -60,15 +66,19 @@ class IniciarJornadaViewModel(
         _estado.update {
             it.copy(
                 vehiculoError = validacion.vehiculo.mensajeError,
-                kmError = validacion.kmInicial.mensajeError
+                kmError = validacion.kmInicial.mensajeError,
+                fotoError = if (actual.fotoPath == null) "La foto del odómetro es obligatoria" else null
             )
         }
-        if (!validacion.esValido) return
+        if (!validacion.esValido || actual.fotoPath == null) return
         val vehiculo = actual.vehiculo ?: return
 
         viewModelScope.launch {
             _estado.update { it.copy(guardando = true, errorGeneral = null) }
-            jornadaRepository.iniciarJornada(tecnicoId, vehiculo.id, actual.kmInicial.trim().toInt())
+            val ubicacion = locationProvider.obtenerUbicacion()
+            jornadaRepository.iniciarJornada(
+                tecnicoId, vehiculo.id, actual.kmInicial.trim().toInt(), actual.fotoPath, ubicacion
+            )
                 .onSuccess { _estado.update { it.copy(guardando = false, guardado = true) } }
                 .onFailure { e -> _estado.update { it.copy(guardando = false, errorGeneral = e.message) } }
         }

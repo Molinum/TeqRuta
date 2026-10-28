@@ -5,6 +5,7 @@ import com.teqmed.teqruta.data.local.AppDatabase
 import com.teqmed.teqruta.data.repository.AuthRepository
 import com.teqmed.teqruta.data.repository.CatalogoRepository
 import com.teqmed.teqruta.data.repository.JornadaRepository
+import com.teqmed.teqruta.device.LocationProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,8 +33,10 @@ class TeqRutaApp : Application() {
     }
 
     val jornadaRepository by lazy {
-        JornadaRepository(database.jornadaDao(), database.trasladoDao())
+        JornadaRepository(database.jornadaDao(), database.trasladoDao(), catalogoRepository)
     }
+
+    val locationProvider by lazy { LocationProvider(this) }
 
     override fun onCreate() {
         super.onCreate()

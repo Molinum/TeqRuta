@@ -20,6 +20,8 @@ import com.teqmed.teqruta.ui.ViewModelFactory
 import com.teqmed.teqruta.ui.auth.LoginScreen
 import com.teqmed.teqruta.ui.components.ProximamenteScreen
 import com.teqmed.teqruta.ui.tecnico.IniciarJornadaScreen
+import com.teqmed.teqruta.ui.tecnico.RegistrarLlegadaScreen
+import com.teqmed.teqruta.ui.tecnico.RegistrarSalidaScreen
 import com.teqmed.teqruta.ui.tecnico.TecnicoHomeScreen
 
 private const val DURACION_TRANSICION = 300
@@ -74,6 +76,8 @@ fun TeqRutaNavGraph(
                     viewModel = viewModel(factory = factory.conUsuario(actual.id)),
                     subtitulo = subtituloDe(actual),
                     onIniciarJornada = { navController.navigate(Routes.TECNICO_INICIAR_JORNADA) },
+                    onSalir = { navController.navigate(Routes.TECNICO_SALIDA) },
+                    onRegistrarLlegada = { navController.navigate(Routes.TECNICO_LLEGADA) },
                     onCerrarSesion = cerrarSesion
                 )
             }
@@ -85,6 +89,25 @@ fun TeqRutaNavGraph(
                     viewModel = viewModel(factory = factory.conUsuario(actual.id)),
                     onVolver = { navController.popBackStack() },
                     onJornadaIniciada = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(Routes.TECNICO_SALIDA) {
+            RequiereRol(usuario, Rol.TECNICO, onNoAutorizado = cerrarSesion) { actual ->
+                RegistrarSalidaScreen(
+                    viewModel = viewModel(factory = factory.conUsuario(actual.id)),
+                    onVolver = { navController.popBackStack() },
+                    onSalidaRegistrada = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(Routes.TECNICO_LLEGADA) {
+            RequiereRol(usuario, Rol.TECNICO, onNoAutorizado = cerrarSesion) { actual ->
+                RegistrarLlegadaScreen(
+                    viewModel = viewModel(factory = factory.conUsuario(actual.id)),
+                    onVolver = { navController.popBackStack() }
                 )
             }
         }
