@@ -1,14 +1,8 @@
 package com.teqmed.teqruta.ui.auth
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +15,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material3.Button
@@ -44,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.teqmed.teqruta.data.local.entity.Usuario
+import com.teqmed.teqruta.ui.components.ErrorCard
 import com.teqmed.teqruta.ui.components.ValidatedTextField
 import com.teqmed.teqruta.ui.theme.TeqRutaTheme
 
@@ -139,13 +133,7 @@ private fun LoginContent(
                         enabled = !estado.cargando
                     )
 
-                    AnimatedVisibility(
-                        visible = estado.errorGeneral != null,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        ErrorGeneral(estado.errorGeneral.orEmpty())
-                    }
+                    ErrorCard(estado.errorGeneral)
 
                     Button(
                         onClick = {
@@ -176,25 +164,6 @@ private fun LoginContent(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@Composable
-private fun ErrorGeneral(mensaje: String) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer
-        )
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(Icons.Outlined.ErrorOutline, contentDescription = null)
-            Text(mensaje, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

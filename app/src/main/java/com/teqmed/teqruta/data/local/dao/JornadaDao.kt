@@ -26,4 +26,15 @@ interface JornadaDao {
 
     @Query("SELECT * FROM jornadas WHERE vehiculoId = :vehiculoId AND estado = 'ABIERTA' LIMIT 1")
     suspend fun obtenerAbiertaPorVehiculo(vehiculoId: Long): Jornada?
+
+    /** Km final de la última jornada cerrada del vehículo (último odómetro conocido). */
+    @Query(
+        """
+        SELECT kmFinal FROM jornadas
+        WHERE vehiculoId = :vehiculoId AND kmFinal IS NOT NULL
+        ORDER BY fin DESC
+        LIMIT 1
+        """
+    )
+    suspend fun obtenerUltimoKmFinal(vehiculoId: Long): Int?
 }

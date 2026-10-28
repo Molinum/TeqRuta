@@ -7,6 +7,7 @@ object Routes {
     const val LOGIN = "login"
 
     const val TECNICO_INICIO = "tecnico/inicio"
+    const val TECNICO_INICIAR_JORNADA = "tecnico/iniciar-jornada"
     const val JEFE_INICIO = "jefe/inicio"
     const val GERENCIA_INICIO = "gerencia/inicio"
     const val ADMIN_INICIO = "admin/inicio"

@@ -19,6 +19,8 @@ import com.teqmed.teqruta.ui.SessionViewModel
 import com.teqmed.teqruta.ui.ViewModelFactory
 import com.teqmed.teqruta.ui.auth.LoginScreen
 import com.teqmed.teqruta.ui.components.ProximamenteScreen
+import com.teqmed.teqruta.ui.tecnico.IniciarJornadaScreen
+import com.teqmed.teqruta.ui.tecnico.TecnicoHomeScreen
 
 private const val DURACION_TRANSICION = 300
 
@@ -68,11 +70,21 @@ fun TeqRutaNavGraph(
 
         composable(Routes.TECNICO_INICIO) {
             RequiereRol(usuario, Rol.TECNICO, onNoAutorizado = cerrarSesion) { actual ->
-                ProximamenteScreen(
-                    titulo = "Mis traslados",
+                TecnicoHomeScreen(
+                    viewModel = viewModel(factory = factory.conUsuario(actual.id)),
                     subtitulo = subtituloDe(actual),
-                    descripcion = "Aquí podrás iniciar tu jornada y registrar tus traslados.",
+                    onIniciarJornada = { navController.navigate(Routes.TECNICO_INICIAR_JORNADA) },
                     onCerrarSesion = cerrarSesion
+                )
+            }
+        }
+
+        composable(Routes.TECNICO_INICIAR_JORNADA) {
+            RequiereRol(usuario, Rol.TECNICO, onNoAutorizado = cerrarSesion) { actual ->
+                IniciarJornadaScreen(
+                    viewModel = viewModel(factory = factory.conUsuario(actual.id)),
+                    onVolver = { navController.popBackStack() },
+                    onJornadaIniciada = { navController.popBackStack() }
                 )
             }
         }
