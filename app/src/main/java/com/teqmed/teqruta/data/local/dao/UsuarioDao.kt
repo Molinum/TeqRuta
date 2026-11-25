@@ -4,11 +4,16 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Upsert
 import com.teqmed.teqruta.data.local.entity.Usuario
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface UsuarioDao {
+    /** Inserta o actualiza por id (sin borrar la fila, para no romper las claves foráneas). */
+    @Upsert
+    suspend fun upsertTodos(items: List<Usuario>)
+
     @Insert
     suspend fun insertar(usuario: Usuario): Long
 

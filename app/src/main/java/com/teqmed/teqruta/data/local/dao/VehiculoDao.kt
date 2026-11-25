@@ -4,11 +4,16 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Upsert
 import com.teqmed.teqruta.data.local.entity.Vehiculo
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VehiculoDao {
+    /** Inserta o actualiza por id (sin borrar la fila, para no romper las claves foráneas). */
+    @Upsert
+    suspend fun upsertTodos(items: List<Vehiculo>)
+
     @Insert
     suspend fun insertar(vehiculo: Vehiculo): Long
 
@@ -20,6 +25,9 @@ interface VehiculoDao {
 
     @Query("SELECT * FROM vehiculos WHERE activo = 1 ORDER BY descripcion")
     fun observarActivos(): Flow<List<Vehiculo>>
+
+    @Query("SELECT * FROM vehiculos ORDER BY descripcion")
+    suspend fun obtenerTodos(): List<Vehiculo>
 
     @Query("SELECT * FROM vehiculos ORDER BY descripcion")
     fun observarTodos(): Flow<List<Vehiculo>>

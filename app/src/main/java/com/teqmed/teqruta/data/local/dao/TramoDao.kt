@@ -4,10 +4,17 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Upsert
 import com.teqmed.teqruta.data.local.entity.Tramo
+import com.teqmed.teqruta.data.local.entity.TramoConNombres
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TramoDao {
+    /** Inserta o actualiza por id (sin borrar la fila, para no romper las claves foráneas). */
+    @Upsert
+    suspend fun upsertTodos(items: List<Tramo>)
+
     @Insert
     suspend fun insertar(tramo: Tramo): Long
 
@@ -29,4 +36,16 @@ interface TramoDao {
         """
     )
     suspend fun obtenerVigente(origenId: Long, destinoId: Long, fecha: Long): Tramo?
+
+    /** Todas las versiones de todos los tramos, con los nombres de origen y destino. */
+    @Query(
+        """
+        SELECT t.*, o.nombre AS origenNombre, d.nombre AS destinoNombre
+        FROM tramos t
+        JOIN destinos o ON o.id = t.origenId
+        JOIN destinos d ON d.id = t.destinoId
+        ORDER BY o.nombre, d.nombre, t.vigenteDesde DESC, t.id DESC
+        """
+    )
+    fun observarTodosConNombres(): Flow<List<TramoConNombres>>
 }

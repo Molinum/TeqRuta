@@ -3,11 +3,16 @@ package com.teqmed.teqruta.data.local.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Upsert
 import com.teqmed.teqruta.data.local.entity.TarifaCombustible
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TarifaDao {
+    /** Inserta o actualiza por id (sin borrar la fila, para no romper las claves foráneas). */
+    @Upsert
+    suspend fun upsertTodos(items: List<TarifaCombustible>)
+
     @Insert
     suspend fun insertar(tarifa: TarifaCombustible): Long
 

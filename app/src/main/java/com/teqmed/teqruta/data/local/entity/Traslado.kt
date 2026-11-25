@@ -4,7 +4,9 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.util.UUID
 import com.teqmed.teqruta.domain.model.MarcaTraslado
+import com.teqmed.teqruta.domain.model.MotivoDesvio
 
 /**
  * Un tramo recorrido dentro de una jornada. Se crea al registrar la salida y se completa
@@ -27,11 +29,13 @@ import com.teqmed.teqruta.domain.model.MarcaTraslado
         Index(value = ["jornadaId"]),
         Index(value = ["origenId"]),
         Index(value = ["destinoId"]),
-        Index(value = ["tramoId"])
+        Index(value = ["tramoId"]),
+        Index(value = ["uuid"], unique = true)
     ]
 )
 data class Traslado(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val uuid: String = UUID.randomUUID().toString(),
     val jornadaId: Long,
     val orden: Int,
     val origenId: Long,
@@ -53,5 +57,8 @@ data class Traslado(
     val rendimientoUsado: Double? = null,
     val costo: Double? = null,
     val desviacionPct: Double? = null,
-    val marca: MarcaTraslado? = null
+    val marca: MarcaTraslado? = null,
+    /** Explicación del técnico; solo se pide si el traslado tiene desviación o no está catalogado. */
+    val motivoTipo: MotivoDesvio? = null,
+    val motivoDetalle: String? = null
 )
