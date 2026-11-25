@@ -1,5 +1,6 @@
 package com.teqmed.teqruta.domain.validation
 
+import com.teqmed.teqruta.domain.model.MotivoDesvio
 import com.teqmed.teqruta.domain.validation.ValidationResult.Invalid
 import com.teqmed.teqruta.domain.validation.ValidationResult.Valid
 
@@ -26,6 +27,20 @@ object JornadaValidator {
             kmInicial = kmResultado
         )
     }
+
+    data class ResultadoMotivo(val tipo: ValidationResult, val detalle: ValidationResult) {
+        val esValido get() = tipo.esValido && detalle.esValido
+    }
+
+    /** El motivo es obligatorio en traslados con alerta; "Otro" exige además una descripción. */
+    fun validarMotivo(tipo: MotivoDesvio?, detalle: String): ResultadoMotivo = ResultadoMotivo(
+        tipo = Validators.seleccion(tipo, "un motivo"),
+        detalle = if (tipo?.requiereDetalle == true) {
+            Validators.longitudMinima(detalle.trim(), "La descripción", 5)
+        } else {
+            Valid
+        }
+    )
 
     /** El km de llegada debe ser mayor que el km con que salió el traslado. */
     fun validarKmLlegada(km: String, kmSalida: Int): ValidationResult {

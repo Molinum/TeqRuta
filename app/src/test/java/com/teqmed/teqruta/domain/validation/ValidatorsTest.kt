@@ -74,3 +74,38 @@ class ValidatorsTest {
         assertTrue(Validators.primerError(ValidationResult.Valid).esValido)
     }
 }
+
+class ValidatorsAdminTest {
+
+    @Test
+    fun `coordenada valida el rango`() {
+        assertTrue(Validators.coordenada("-36,8285", "Latitud", -90.0, 90.0).esValido)
+        assertFalse(Validators.coordenada("95", "Latitud", -90.0, 90.0).esValido)
+        assertFalse(Validators.coordenada("abc", "Latitud", -90.0, 90.0).esValido)
+        assertFalse(Validators.coordenada("", "Latitud", -90.0, 90.0).esValido)
+    }
+
+    @Test
+    fun `fecha exige el formato dd-MM-aaaa y una fecha real`() {
+        assertTrue(Validators.fecha("15-03-2026").esValido)
+        assertFalse(Validators.fecha("31-02-2026").esValido)
+        assertFalse(Validators.fecha("2026-03-15").esValido)
+        assertFalse(Validators.fecha("1-3-2026").esValido)
+        assertFalse(Validators.fecha("").esValido)
+    }
+
+    @Test
+    fun `fechaNoAnterior rechaza fechas previas al minimo`() {
+        val minimo = Validators.parsearFecha("10-03-2026")
+        assertTrue(Validators.fechaNoAnterior("10-03-2026", minimo, "la versión previa").esValido)
+        assertTrue(Validators.fechaNoAnterior("11-03-2026", minimo, "la versión previa").esValido)
+        assertFalse(Validators.fechaNoAnterior("09-03-2026", minimo, "la versión previa").esValido)
+        assertTrue(Validators.fechaNoAnterior("09-03-2026", null, "la versión previa").esValido)
+    }
+
+    @Test
+    fun `sinDuplicado ignora mayusculas y espacios`() {
+        assertFalse(Validators.sinDuplicado(" clínica biobío ", listOf("Clínica Biobío"), "Ya existe").esValido)
+        assertTrue(Validators.sinDuplicado("Clínica Nueva", listOf("Clínica Biobío"), "Ya existe").esValido)
+    }
+}
