@@ -12,7 +12,7 @@ Proyecto de la asignatura Desarrollo de Aplicaciones Móviles (DSY1105), Duoc UC
 
 ## Estado del proyecto
 
-En desarrollo (Evaluación Parcial 2).
+En desarrollo para la Evaluación Final Transversal (EFT): proyecto completo con app, servidor y sincronización.
 
 ### Funcionalidades implementadas
 
@@ -40,6 +40,7 @@ En desarrollo (Evaluación Parcial 2).
 
 - Filtros del jefe por técnico y rango de fechas (RF-JEF-06).
 - Explicar y volver a pedir los permisos de cámara y ubicación si se rechazan (RF-TEC-15).
+- Subir las fotos del odómetro al servidor: hoy quedan solo en el dispositivo que las tomó, y en otro dispositivo se ve "Foto no disponible".
 
 El detalle está en [`docs/TeqRuta_notas.md`](docs/TeqRuta_notas.md) (plan de desarrollo) y [`docs/TeqRuta_requisitos.md`](docs/TeqRuta_requisitos.md) (requisitos funcionales).
 
