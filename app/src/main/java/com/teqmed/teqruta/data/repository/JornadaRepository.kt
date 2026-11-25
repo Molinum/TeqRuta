@@ -4,10 +4,13 @@ import com.teqmed.teqruta.data.local.dao.JornadaDao
 import com.teqmed.teqruta.data.local.dao.TrasladoDao
 import com.teqmed.teqruta.data.local.entity.Destino
 import com.teqmed.teqruta.data.local.entity.Jornada
+import com.teqmed.teqruta.data.local.entity.JornadaResumen
 import com.teqmed.teqruta.data.local.entity.Traslado
 import com.teqmed.teqruta.data.local.entity.TrasladoConNombres
 import com.teqmed.teqruta.domain.calculo.CalculadoraCosto
+import com.teqmed.teqruta.domain.calculo.PoliticaValidacion
 import com.teqmed.teqruta.domain.model.EstadoJornada
+import com.teqmed.teqruta.domain.model.MotivoDesvio
 import com.teqmed.teqruta.domain.model.TipoDestino
 import kotlinx.coroutines.flow.Flow
 
@@ -17,11 +20,15 @@ class ReglaNegocioException(mensaje: String) : Exception(mensaje)
 /** Coordenadas GPS; null en los parámetros si no hay permiso o señal. */
 data class Coordenadas(val lat: Double, val lon: Double)
 
+/** Traslado ya calculado y, si la llegada cerró la jornada, el estado con que quedó. */
+data class ResultadoLlegada(val traslado: Traslado, val estadoJornada: EstadoJornada?)
+
 /** Jornadas de los técnicos y los traslados que las componen. */
 class JornadaRepository(
     private val jornadaDao: JornadaDao,
     private val trasladoDao: TrasladoDao,
-    private val catalogo: CatalogoRepository
+    private val catalogo: CatalogoRepository,
+    private val sync: Sincronizador = SinSincronizacion
 ) {
     fun observarJornadaAbierta(tecnicoId: Long): Flow<Jornada?> = jornadaDao.observarAbierta(tecnicoId)
 
@@ -29,6 +36,44 @@ class JornadaRepository(
         trasladoDao.observarConNombres(jornadaId)
 
     suspend fun obtenerJornada(id: Long): Jornada? = jornadaDao.obtenerPorId(id)
+
+    fun observarResumenesDeTecnico(tecnicoId: Long): Flow<List<JornadaResumen>> =
+        jornadaDao.observarResumenesDeTecnico(tecnicoId)
+
+    fun observarResumenesDeJefe(jefeId: Long): Flow<List<JornadaResumen>> =
+        jornadaDao.observarResumenesDeJefe(jefeId)
+
+    fun observarResumen(jornadaId: Long): Flow<JornadaResumen?> = jornadaDao.observarResumen(jornadaId)
+
+    /** Pasa una jornada Cerrada a Validada (RF-JEF-04). Solo el jefe del técnico puede hacerlo (RN-15). */
+    suspend fun validar(jornadaId: Long, jefeId: Long): Result<Unit> =
+        revisar(jornadaId, jefeId) { it.copy(estado = EstadoJornada.VALIDADA, comentarioJefe = null) }
+
+    /** Pasa una jornada Cerrada a Rechazada con un comentario obligatorio (RF-JEF-05, RN-11). */
+    suspend fun rechazar(jornadaId: Long, jefeId: Long, comentario: String): Result<Unit> {
+        if (comentario.isBlank()) return Result.failure(ReglaNegocioException("El comentario es obligatorio"))
+        return revisar(jornadaId, jefeId) {
+            it.copy(estado = EstadoJornada.RECHAZADA, comentarioJefe = comentario.trim())
+        }
+    }
+
+    private suspend fun revisar(jornadaId: Long, jefeId: Long, cambio: (Jornada) -> Jornada): Result<Unit> {
+        val resumen = jornadaDao.obtenerResumen(jornadaId)
+            ?: return Result.failure(ReglaNegocioException("Jornada no encontrada"))
+        if (resumen.jefeId != jefeId) {
+            return Result.failure(ReglaNegocioException("Esta jornada no corresponde a tu equipo"))
+        }
+        // Una jornada Validada o Rechazada no la modifica nadie (RN-10)
+        if (resumen.jornada.estado != EstadoJornada.CERRADA) {
+            return Result.failure(ReglaNegocioException("La jornada ya fue revisada"))
+        }
+        jornadaDao.actualizar(cambio(resumen.jornada).copy(actualizadoEn = System.currentTimeMillis(), pendienteSync = true))
+        sync.solicitar()
+        return Result.success(Unit)
+    }
+
+    /** Km oficiales del tramo, para saber si un km declarado exigirá explicar un motivo. */
+    suspend fun obtenerKmOficial(tramoId: Long): Double? = catalogo.obtenerTramo(tramoId)?.kmOficial
 
     suspend fun obtenerUltimoKmVehiculo(vehiculoId: Long): Int? = jornadaDao.obtenerUltimoKmFinal(vehiculoId)
 
@@ -60,6 +105,7 @@ class JornadaRepository(
                 lonInicio = ubicacion?.lon
             )
         )
+        sync.solicitar()
         return Result.success(id)
     }
 
@@ -111,20 +157,26 @@ class JornadaRepository(
                 lonSalida = ubicacion?.lon
             )
         )
+        jornadaDao.marcarPendiente(jornada.id, ahora)
+        sync.solicitar()
         return Result.success(id)
     }
 
     /**
      * Registra la llegada del traslado y calcula su costo con los valores vigentes a la fecha
      * de salida, guardando una copia de ellos (RF-TEC-09, RN-04). Si el destino es la sede,
-     * además cierra la jornada (RF-TEC-11, RF-TEC-12).
+     * además cierra la jornada (RF-TEC-11, RF-TEC-12): queda Validada si ningún traslado tiene
+     * alertas y Cerrada, pendiente del jefe, si alguno las tiene ([PoliticaValidacion]).
+     * Un traslado con alerta exige el motivo del técnico (RF-TEC-16).
      */
     suspend fun registrarLlegada(
         trasladoId: Long,
         kmFin: Int,
         fotoUri: String?,
-        ubicacion: Coordenadas?
-    ): Result<Traslado> {
+        ubicacion: Coordenadas?,
+        motivoTipo: MotivoDesvio? = null,
+        motivoDetalle: String? = null
+    ): Result<ResultadoLlegada> {
         val traslado = trasladoDao.obtenerPorId(trasladoId)
             ?: return Result.failure(ReglaNegocioException("Traslado no encontrado"))
         val jornada = jornadaDao.obtenerPorId(traslado.jornadaId)
@@ -142,6 +194,9 @@ class JornadaRepository(
             rendimientoKmL = vehiculo.rendimientoKmL,
             precioLitro = tarifa.precioLitro
         )
+        if (PoliticaValidacion.requiereMotivo(resultado.marca) && motivoTipo == null) {
+            return Result.failure(ReglaNegocioException("Indica qué ocurrió en este traslado"))
+        }
         val ahora = System.currentTimeMillis()
         val actualizado = traslado.copy(
             horaLlegada = ahora,
@@ -155,21 +210,33 @@ class JornadaRepository(
             rendimientoUsado = vehiculo.rendimientoKmL,
             costo = resultado.costo,
             desviacionPct = resultado.desviacionPct,
-            marca = resultado.marca
+            marca = resultado.marca,
+            motivoTipo = motivoTipo.takeIf { PoliticaValidacion.requiereMotivo(resultado.marca) },
+            motivoDetalle = motivoDetalle?.trim()?.takeIf { it.isNotEmpty() && motivoTipo != null }
         )
         trasladoDao.actualizar(actualizado)
 
         val destino = catalogo.obtenerDestino(traslado.destinoId)
+        var estadoJornada: EstadoJornada? = null
         if (destino?.tipo == TipoDestino.SEDE) {
+            estadoJornada = PoliticaValidacion.estadoAlCerrar(
+                trasladoDao.obtenerPorJornada(jornada.id).map { it.marca }
+            )
             jornadaDao.actualizar(
                 jornada.copy(
                     fin = ahora,
                     kmFinal = kmFin,
                     fotoCierreUri = fotoUri,
-                    estado = EstadoJornada.CERRADA
+                    estado = estadoJornada,
+                    validacionAutomatica = estadoJornada == EstadoJornada.VALIDADA,
+                    actualizadoEn = ahora,
+                    pendienteSync = true
                 )
             )
+        } else {
+            jornadaDao.marcarPendiente(jornada.id, ahora)
         }
-        return Result.success(actualizado)
+        sync.solicitar()
+        return Result.success(ResultadoLlegada(actualizado, estadoJornada))
     }
 }
