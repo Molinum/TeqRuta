@@ -25,6 +25,8 @@ class IniciarJornadaViewModel(
     val estado: StateFlow<IniciarJornadaFormState> = _estado.asStateFlow()
 
     init {
+        // Calienta el GPS mientras el técnico llena el formulario, para no esperarlo al guardar
+        viewModelScope.launch { locationProvider.obtenerUbicacion() }
         viewModelScope.launch {
             val sede = catalogoRepository.obtenerSede()
             _estado.update { it.copy(sedeNombre = sede?.nombre ?: "Sede") }

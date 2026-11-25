@@ -41,6 +41,8 @@ class RegistrarSalidaViewModel(
     val estado: StateFlow<RegistrarSalidaState> = _estado.asStateFlow()
 
     init {
+        // Calienta el GPS mientras el técnico elige el destino, para no esperarlo al guardar
+        viewModelScope.launch { locationProvider.obtenerUbicacion() }
         viewModelScope.launch {
             val origen = jornadaRepository.obtenerUbicacionActual(tecnicoId)
             // La vuelta a la sede se registra desde el inicio con "Volver a la sede"

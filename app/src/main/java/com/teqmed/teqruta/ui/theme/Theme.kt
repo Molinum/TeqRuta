@@ -1,11 +1,14 @@
 package com.teqmed.teqruta.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 private val LightColorScheme = lightColorScheme(
     primary = AzulTeq,
@@ -21,15 +24,17 @@ private val LightColorScheme = lightColorScheme(
     tertiaryContainer = AmbarContenedor,
     onTertiaryContainer = AmbarOscuro,
     background = FondoClaro,
-    surface = FondoClaro,
+    // Tarjetas y diálogos blancos sobre un fondo gris azulado suave
+    surface = Color.White,
     surfaceVariant = VarianteClara,
     onSurfaceVariant = TextoVarianteClaro,
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = SuperficieClara1,
+    surfaceContainerLow = Color.White,
     surfaceContainer = SuperficieClara2,
     surfaceContainerHigh = SuperficieClara3,
     surfaceContainerHighest = SuperficieClara4,
-    outline = ContornoClaro
+    outline = ContornoClaro,
+    outlineVariant = Color(0xFFD5DDE6)
 )
 
 private val DarkColorScheme = darkColorScheme(
@@ -57,6 +62,12 @@ private val DarkColorScheme = darkColorScheme(
     outline = ContornoOscuro
 )
 
+private val Formas = Shapes(
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp)
+)
+
 /** Tema de la app. No usa colores dinámicos (Android 12+) para mantener la identidad de TEQMED. */
 @Composable
 fun TeqRutaTheme(
@@ -66,6 +77,7 @@ fun TeqRutaTheme(
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
         typography = Typography,
+        shapes = Formas,
         content = content
     )
 }

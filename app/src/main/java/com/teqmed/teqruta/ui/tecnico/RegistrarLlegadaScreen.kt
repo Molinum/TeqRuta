@@ -1,8 +1,9 @@
 package com.teqmed.teqruta.ui.tecnico
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -20,30 +21,32 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.LocalShipping
+import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.QuestionAnswer
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.teqmed.teqruta.data.local.entity.Traslado
+import com.teqmed.teqruta.domain.model.EstadoJornada
+import com.teqmed.teqruta.domain.model.MotivoDesvio
+import com.teqmed.teqruta.ui.components.DropdownField
 import com.teqmed.teqruta.ui.components.ErrorCard
 import com.teqmed.teqruta.ui.components.EstadoChip
 import com.teqmed.teqruta.ui.components.FotoOdometroField
@@ -51,9 +54,7 @@ import com.teqmed.teqruta.ui.components.TeqRutaTopBar
 import com.teqmed.teqruta.ui.components.ValidatedTextField
 import com.teqmed.teqruta.ui.util.formatearHora
 import com.teqmed.teqruta.ui.util.formatearKm
-import com.teqmed.teqruta.ui.util.formatearKmDecimal
-import com.teqmed.teqruta.ui.util.formatearPesos
-import kotlin.math.roundToInt
+import com.teqmed.teqruta.ui.util.formatearMotivo
 
 @Composable
 fun RegistrarLlegadaScreen(
@@ -73,7 +74,10 @@ fun RegistrarLlegadaScreen(
             if (resultado == null) {
                 Formulario(estado, viewModel)
             } else {
-                Resultado(resultado, estado.esCierre, estado.conUbicacion, onVolver)
+                Resultado(
+                    resultado, estado.enCurso?.destinoNombre ?: "—", estado.esCierre,
+                    estado.estadoJornada, estado.conUbicacion, onVolver
+                )
             }
         }
     }
@@ -95,7 +99,7 @@ private fun Formulario(estado: RegistrarLlegadaState, viewModel: RegistrarLlegad
             return@Column
         }
         Aviso(
-            icono = Icons.Outlined.LocalShipping,
+            icono = Icons.Outlined.Route,
             titulo = "${enCurso.origenNombre} → ${enCurso.destinoNombre}",
             texto = "Salida ${formatearHora(enCurso.traslado.horaSalida)} · ${formatearKm(enCurso.traslado.kmInicio)}",
             fondo = MaterialTheme.colorScheme.secondaryContainer,
@@ -112,6 +116,8 @@ private fun Formulario(estado: RegistrarLlegadaState, viewModel: RegistrarLlegad
             imeAction = ImeAction.Done,
             enabled = !estado.guardando
         )
+
+        MotivoDesvioSeccion(estado, viewModel)
 
         FotoOdometroField(
             fotoPath = estado.fotoPath,
@@ -141,12 +147,14 @@ private fun Formulario(estado: RegistrarLlegadaState, viewModel: RegistrarLlegad
 }
 
 @Composable
-private fun Resultado(traslado: Traslado, esCierre: Boolean, conUbicacion: Boolean, onVolver: () -> Unit) {
-    // Contador animado del costo
-    val objetivo = remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(traslado.id) { objetivo.floatValue = (traslado.costo ?: 0.0).toFloat() }
-    val costoAnimado by animateFloatAsState(objetivo.floatValue, tween(900), label = "costo")
-
+private fun Resultado(
+    traslado: Traslado,
+    destino: String,
+    esCierre: Boolean,
+    estadoJornada: EstadoJornada?,
+    conUbicacion: Boolean,
+    onVolver: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -162,24 +170,76 @@ private fun Resultado(traslado: Traslado, esCierre: Boolean, conUbicacion: Boole
             if (esCierre) "Jornada cerrada" else "Llegada registrada",
             style = MaterialTheme.typography.titleLarge
         )
-        Text(formatearPesos(costoAnimado.toDouble()), style = MaterialTheme.typography.headlineMedium)
         traslado.marca?.let { EstadoChip(it) }
+        if (esCierre && estadoJornada != null) {
+            Text(
+                if (estadoJornada == EstadoJornada.VALIDADA) {
+                    "Sin diferencias: la jornada quedó validada automáticamente."
+                } else {
+                    "Hay diferencias en algunos traslados. Tu jefe revisará la jornada."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
 
-        Card(Modifier.fillMaxWidth()) {
+        ElevatedCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val declarados = (traslado.kmFin ?: traslado.kmInicio) - traslado.kmInicio
-                Fila("Km declarados", formatearKm(declarados))
-                Fila("Km oficiales", traslado.kmOficialUsado?.let(::formatearKmDecimal) ?: "Sin tramo oficial")
-                traslado.desviacionPct?.let { Fila("Desviación", "${(it * 100).roundToInt()}%") }
-                HorizontalDivider()
-                Fila("Peaje", formatearPesos((traslado.peajeUsado ?: 0).toDouble()))
-                Fila("Precio litro", formatearPesos(traslado.precioLitroUsado ?: 0.0))
+                val recorridos = (traslado.kmFin ?: traslado.kmInicio) - traslado.kmInicio
+                Fila("Destino", destino)
+                Fila("Hora de llegada", traslado.horaLlegada?.let(::formatearHora) ?: "—")
+                Fila("Km del odómetro", formatearKm(traslado.kmFin ?: traslado.kmInicio))
+                Fila("Km recorridos", formatearKm(recorridos))
+                formatearMotivo(traslado.motivoTipo, traslado.motivoDetalle)?.let { Fila("Motivo", it) }
                 Fila("Ubicación GPS", if (conUbicacion) "Registrada" else "Sin ubicación")
             }
         }
 
         Button(onClick = onVolver, modifier = Modifier.fillMaxWidth().height(52.dp)) {
             Text("Volver al inicio")
+        }
+    }
+}
+
+/** Pregunta qué ocurrió solo cuando el traslado tiene desviación o no está catalogado. */
+@Composable
+private fun MotivoDesvioSeccion(estado: RegistrarLlegadaState, viewModel: RegistrarLlegadaViewModel) {
+    AnimatedVisibility(
+        visible = estado.requiereMotivo,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut()
+    ) {
+        ElevatedCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    if (estado.sinTramo) {
+                        "Este trayecto no tiene una distancia registrada. Cuéntanos qué ocurrió."
+                    } else {
+                        "El km ingresado difiere de lo esperado para este tramo. ¿Qué ocurrió?"
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                DropdownField(
+                    label = "Motivo",
+                    options = MotivoDesvio.entries,
+                    selected = estado.motivoTipo,
+                    onSelected = viewModel::onMotivoChange,
+                    optionLabel = { it.etiqueta },
+                    leadingIcon = Icons.Outlined.QuestionAnswer,
+                    error = estado.motivoError,
+                    enabled = !estado.guardando
+                )
+                ValidatedTextField(
+                    value = estado.motivoDetalle,
+                    onValueChange = viewModel::onDetalleChange,
+                    label = if (estado.motivoTipo?.requiereDetalle == true) "Describe lo ocurrido" else "Detalle (opcional)",
+                    leadingIcon = Icons.Outlined.EditNote,
+                    error = estado.detalleError,
+                    imeAction = ImeAction.Done,
+                    enabled = !estado.guardando
+                )
+            }
         }
     }
 }

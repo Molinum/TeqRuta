@@ -1,6 +1,8 @@
 package com.teqmed.teqruta.ui.tecnico
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,10 +23,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.Button
@@ -32,9 +35,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,7 +56,6 @@ import com.teqmed.teqruta.ui.components.PedirPermisoUbicacion
 import com.teqmed.teqruta.ui.components.TeqRutaTopBar
 import com.teqmed.teqruta.ui.util.formatearHora
 import com.teqmed.teqruta.ui.util.formatearKm
-import com.teqmed.teqruta.ui.util.formatearPesos
 
 @Composable
 fun TecnicoHomeScreen(
@@ -61,6 +64,7 @@ fun TecnicoHomeScreen(
     onIniciarJornada: () -> Unit,
     onSalir: () -> Unit,
     onRegistrarLlegada: () -> Unit,
+    onHistorial: () -> Unit,
     onCerrarSesion: () -> Unit
 ) {
     val estado by viewModel.estado.collectAsState()
@@ -69,12 +73,26 @@ fun TecnicoHomeScreen(
     PedirPermisoUbicacion(viewModel.tienePermisoUbicacion())
 
     Scaffold(
-        topBar = { TeqRutaTopBar("Mis traslados", subtitulo, onCerrarSesion = onCerrarSesion) }
+        topBar = {
+            TeqRutaTopBar(
+                "Mis traslados", subtitulo,
+                onCerrarSesion = onCerrarSesion,
+                acciones = {
+                    IconButton(onClick = onHistorial) {
+                        Icon(Icons.Outlined.History, contentDescription = "Historial de jornadas")
+                    }
+                }
+            )
+        }
     ) { padding ->
         AnimatedContent(
             targetState = estado,
             contentKey = { if (it.cargando) "cargando" else it.jornadaActiva?.jornada?.id ?: "sin-jornada" },
-            transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.96f)) togetherWith fadeOut() },
+            transitionSpec = {
+                // Al terminar la carga inicial se muestra el contenido de inmediato, sin transición
+                if (initialState.cargando) EnterTransition.None togetherWith ExitTransition.None
+                else (fadeIn() + scaleIn(initialScale = 0.96f)) togetherWith fadeOut()
+            },
             label = "estado-tecnico",
             modifier = Modifier.fillMaxSize().padding(padding)
         ) { actual ->
@@ -157,7 +175,12 @@ private fun JornadaEnCurso(
 
 @Composable
 private fun ResumenJornada(activa: JornadaActiva) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    ) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Jornada en curso", style = MaterialTheme.typography.titleMedium)
             Dato(
@@ -172,7 +195,6 @@ private fun ResumenJornada(activa: JornadaActiva) {
             ) {
                 Total("Traslados", activa.completados.size.toString())
                 Total("Km recorridos", formatearKm(activa.kmRecorridos))
-                Total("Costo", formatearPesos(activa.costoTotal))
             }
         }
     }
@@ -194,12 +216,12 @@ private fun AccionActual(
     onVolverASede: () -> Unit,
     onRegistrarLlegada: () -> Unit
 ) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val enCurso = activa.enCurso
             if (enCurso != null) {
                 val haciaSede = enCurso.destinoTipo == TipoDestino.SEDE
-                Dato(Icons.Outlined.LocalShipping, "En camino a ${enCurso.destinoNombre}")
+                Dato(Icons.Outlined.Route, "En camino a ${enCurso.destinoNombre}")
                 Text(
                     "Salida ${formatearHora(enCurso.traslado.horaSalida)} · ${formatearKm(enCurso.traslado.kmInicio)}",
                     style = MaterialTheme.typography.bodySmall,
@@ -215,8 +237,8 @@ private fun AccionActual(
             } else {
                 Dato(Icons.Outlined.Place, "Estás en ${activa.ubicacionActual}")
                 Button(onClick = onSalir, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                    Icon(Icons.Outlined.LocalShipping, contentDescription = null)
-                    Text("Salir hacia una clínica", modifier = Modifier.padding(start = 8.dp))
+                    Icon(Icons.Outlined.Route, contentDescription = null)
+                    Text("Registrar salida", modifier = Modifier.padding(start = 8.dp))
                 }
                 if (!activa.enSede) {
                     OutlinedButton(
@@ -256,7 +278,8 @@ private fun TrasladoItem(item: TrasladoConNombres, modifier: Modifier = Modifier
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                "${formatearKm((t.kmFin ?: t.kmInicio) - t.kmInicio)} declarados · ${formatearPesos(t.costo ?: 0.0)}",
+                "${formatearHora(t.horaSalida)} – ${t.horaLlegada?.let(::formatearHora) ?: "…"} · " +
+                    formatearKm((t.kmFin ?: t.kmInicio) - t.kmInicio),
                 style = MaterialTheme.typography.bodyMedium
             )
         }

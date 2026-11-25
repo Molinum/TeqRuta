@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -30,7 +32,6 @@ data class JornadaActiva(
     val ubicacionActual get() = completados.lastOrNull()?.destinoNombre ?: sedeNombre
     val enSede get() = completados.isEmpty()
     val kmRecorridos get() = completados.sumOf { (it.traslado.kmFin ?: it.traslado.kmInicio) - it.traslado.kmInicio }
-    val costoTotal get() = completados.sumOf { it.traslado.costo ?: 0.0 }
 }
 
 data class TecnicoHomeState(
@@ -55,15 +56,17 @@ class TecnicoHomeViewModel(
             if (jornada == null) {
                 flowOf(TecnicoHomeState(cargando = false))
             } else {
-                jornadaRepository.observarTraslados(jornada.id).map { traslados ->
-                    TecnicoHomeState(
-                        cargando = false,
-                        jornadaActiva = JornadaActiva(
-                            jornada = jornada,
-                            vehiculo = catalogoRepository.obtenerVehiculo(jornada.vehiculoId),
-                            traslados = traslados,
-                            sedeNombre = catalogoRepository.obtenerSede()?.nombre ?: "Sede"
-                        )
+                flow {
+                    // Vehículo y sede no cambian durante la jornada: se consultan una sola vez
+                    val vehiculo = catalogoRepository.obtenerVehiculo(jornada.vehiculoId)
+                    val sedeNombre = catalogoRepository.obtenerSede()?.nombre ?: "Sede"
+                    emitAll(
+                        jornadaRepository.observarTraslados(jornada.id).map { traslados ->
+                            TecnicoHomeState(
+                                cargando = false,
+                                jornadaActiva = JornadaActiva(jornada, vehiculo, traslados, sedeNombre)
+                            )
+                        }
                     )
                 }
             }

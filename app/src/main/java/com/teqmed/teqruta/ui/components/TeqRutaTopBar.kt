@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +28,8 @@ fun TeqRutaTopBar(
     titulo: String,
     subtitulo: String? = null,
     onVolver: (() -> Unit)? = null,
-    onCerrarSesion: (() -> Unit)? = null
+    onCerrarSesion: (() -> Unit)? = null,
+    acciones: @Composable RowScope.() -> Unit = {}
 ) {
     var confirmarSalida by rememberSaveable { mutableStateOf(false) }
 
@@ -39,7 +41,7 @@ fun TeqRutaTopBar(
                     Text(
                         it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
                     )
                 }
             }
@@ -52,6 +54,8 @@ fun TeqRutaTopBar(
             }
         },
         actions = {
+            if (onCerrarSesion != null) BotonSincronizar()
+            acciones()
             if (onCerrarSesion != null) {
                 IconButton(onClick = { confirmarSalida = true }) {
                     Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = "Cerrar sesión")
@@ -59,10 +63,10 @@ fun TeqRutaTopBar(
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            containerColor = MaterialTheme.colorScheme.primary,
+            titleContentColor = MaterialTheme.colorScheme.onPrimary,
+            navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+            actionIconContentColor = MaterialTheme.colorScheme.onPrimary
         )
     )
 
