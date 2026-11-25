@@ -52,9 +52,9 @@ precio del litro y rendimiento). Si mañana cambia la tarifa, los viajes antiguo
 ### Flujo del técnico (el corazón de la app)
 1. **Iniciar jornada:** elige vehículo, ingresa km inicial, **foto obligatoria**, GPS automático. Origen = sede.
 2. **Salir hacia…:** elige el destino (clínica). Si no existe un tramo para ese par → aviso de "no catalogado".
-3. **Llegué:** ingresa los km actuales (el km de inicio del tramo se completa solo con el km anterior), GPS automático, foto opcional. Se muestra el costo calculado y si hay desviación.
+3. **Llegué:** ingresa los km actuales (el km de inicio del tramo se completa solo con el km anterior), GPS automático, foto opcional. Se confirma el registro (hora, km, GPS) y su marca; el costo se calcula y guarda, pero lo ven solo jefe y gerencia. Si hay desviación o el tramo no está catalogado, antes de guardar se pregunta el motivo (sin mostrar los km oficiales).
 4. Repite 2–3 por cada clínica.
-5. **Cerrar jornada:** último tramo de vuelta a la sede, km final, **foto obligatoria**. La jornada queda `CERRADA` y pasa al jefe.
+5. **Cerrar jornada:** último tramo de vuelta a la sede, km final, **foto obligatoria**. Si ningún traslado tuvo alertas, la jornada queda `VALIDADA` automáticamente; si alguno las tuvo, queda `CERRADA` y pasa al jefe junto con los motivos del técnico. Cómo se resuelve una discrepancia (conversar, corregir) ocurre fuera de la app.
 
 Estados de la jornada: `ABIERTA → CERRADA → VALIDADA | RECHAZADA`
 
@@ -260,7 +260,7 @@ Ordenadas por dependencia: cada fase usa lo que construyó la anterior. Al final
 **Fase 8 · Animaciones y UX** (algunas ya entraron antes; aquí se completan)
 - [ ] Mensajes de error con `AnimatedVisibility` (Fase 2) + "shake" del formulario al enviar con errores.
 - [ ] Transiciones entre pantallas en el `NavHost`.
-- [ ] `animateColorAsState` en los chips de estado; contador animado del costo al registrar una llegada.
+- [ ] `animateColorAsState` en los chips de estado.
 - [ ] Estados de carga y vacío ("Aún no tienes jornadas") con `Crossfade`.
 
 **Fase 9 · Entrega**

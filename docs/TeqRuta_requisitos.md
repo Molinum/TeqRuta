@@ -47,13 +47,14 @@
 | RF-TEC-06 | El sistema debe permitir registrar la **llegada** a un destino indicando el kilometraje actual del odómetro. La hora y la ubicación de llegada se registran automáticamente. | Técnico | Alta | §3.1, §3.2 |
 | RF-TEC-07 | El sistema debe completar automáticamente el kilometraje de inicio de cada traslado con el kilometraje registrado en la llegada anterior (o con el inicial de la jornada). | Técnico | Alta | §3.3 |
 | RF-TEC-08 | El sistema debe permitir adjuntar opcionalmente una fotografía del odómetro al registrar una llegada. | Técnico | Media | [Diseño] |
-| RF-TEC-09 | Al registrar una llegada, el sistema debe **calcular el costo del traslado** y su **marca** (OK, desviación o no catalogado) según RN-01 a RN-04, y mostrárselos al técnico. | Técnico | Alta | §2.4, §4.1 |
-| RF-TEC-10 | El sistema debe mostrar un **resumen de la jornada en curso**: traslados registrados, km acumulados y costo acumulado. | Técnico | Media | §3.3 |
+| RF-TEC-09 | Al registrar una llegada, el sistema debe **calcular y guardar el costo del traslado** y su **marca** (OK, desviación o no catalogado) según RN-01 a RN-04. El costo no se muestra al técnico (lo consultan el jefe y gerencia); al técnico solo se le confirma el registro y su marca. | Técnico | Alta | §2.4, §4.1 |
+| RF-TEC-10 | El sistema debe mostrar un **resumen de la jornada en curso**: traslados registrados y km acumulados. | Técnico | Media | §3.3 |
 | RF-TEC-11 | El sistema debe permitir **cerrar la jornada** registrando el traslado de regreso a la sede, el kilometraje final y una **fotografía obligatoria** del odómetro. | Técnico | Alta | §2.2, [Diseño] |
 | RF-TEC-12 | Al cerrar la jornada, el sistema debe cambiar su estado a **Cerrada** y dejarla disponible para la validación del jefe. | Técnico | Alta | §3.1 |
 | RF-TEC-13 | El sistema debe permitir al técnico consultar el **historial de sus jornadas** con su estado y, si fue rechazada, el comentario del jefe. | Técnico | Media | [Diseño] |
 | RF-TEC-14 | El sistema debe permitir registrar jornadas y traslados **sin conexión a internet**, sin pérdida de datos. | Técnico | Alta | §3.3, §5.1 |
 | RF-TEC-15 | Si el permiso de cámara o de ubicación es denegado, el sistema debe explicar al técnico para qué se necesita y ofrecerle volver a solicitarlo (ver RN-08). | Técnico | Alta | [Diseño] |
+| RF-TEC-16 | Cuando un traslado tenga **desviación** o **no esté catalogado**, el sistema debe pedir al técnico, al registrar la llegada, un **motivo** (lista de opciones más un detalle; el detalle es obligatorio si elige "Otro"). El motivo se muestra al jefe en el detalle de la jornada. No se pide en los traslados sin alertas. | Técnico | Alta | §2.3, §3.3 |
 
 ---
 
@@ -61,7 +62,7 @@
 
 | ID | Requisito | Actor | Prioridad | Origen |
 |---|---|---|---|---|
-| RF-JEF-01 | El sistema debe listar las jornadas **Cerradas** de los técnicos a cargo del jefe, pendientes de validación. | Jefe | Alta | §3.1 |
+| RF-JEF-01 | El sistema debe listar las jornadas **Cerradas** de los técnicos a cargo del jefe, pendientes de validación. Son las que tienen traslados con desviación o no catalogados; las jornadas sin alertas se validan automáticamente al cerrarse (RN-16) y el jefe puede consultarlas. | Jefe | Alta | §3.1 |
 | RF-JEF-02 | El sistema debe **destacar visualmente** las jornadas que contienen traslados con desviación o no catalogados, y mostrarlas primero en la lista. | Jefe | Alta | §3.1, §4.1 |
 | RF-JEF-03 | El sistema debe mostrar el **detalle de una jornada**: cada traslado con origen, destino, horarios, km oficiales vs declarados, % de desviación, costo, ubicaciones registradas y fotografías del odómetro. | Jefe | Alta | §2.3, §4.1 |
 | RF-JEF-04 | El sistema debe permitir **validar** una jornada, cambiando su estado a **Validada**. | Jefe | Alta | §3.1 |
@@ -133,6 +134,7 @@ Requieren conexión con sistemas externos, que el docente excluyó de esta etapa
 | RN-13 | Los destinos, vehículos y usuarios que tienen registros asociados **no se eliminan, se desactivan**. Los desactivados no aparecen en los formularios de registro. |
 | RN-14 | Un tramo debe tener origen distinto del destino, km oficiales > 0 y peaje ≥ 0. El precio del combustible y el rendimiento de los vehículos deben ser > 0. |
 | RN-15 | Un técnico solo ve sus propias jornadas; un jefe solo ve las de los técnicos a su cargo. |
+| RN-16 | **Validación automática:** al cerrarse una jornada cuyos traslados están todos en la marca OK, queda **Validada** sin pasar por el jefe. Si algún traslado tiene desviación o no está catalogado, queda **Cerrada** a la espera del jefe. El seguimiento de una discrepancia (conversar con el técnico, corregir) ocurre fuera de la aplicación; la app deja el registro, el motivo y la marca. Se puede desactivar con `PoliticaValidacion.VALIDACION_AUTOMATICA`. |
 
 ---
 
@@ -150,6 +152,8 @@ Lista de control para el IE 2.1.2: **cada campo** debe mostrar un ícono y un me
 | **Salida a destino** | Destino | Obligatorio, distinto del origen; aviso si no hay tramo (RF-TEC-05) |
 | **Registrar llegada** | Km actual | Obligatorio, numérico entero, > km de salida (RN-05) |
 | | Foto | Opcional |
+| | Motivo | Obligatorio solo si el traslado tiene desviación o no está catalogado (RF-TEC-16) |
+| | Detalle del motivo | Opcional; obligatorio (mín. 5 caracteres) si el motivo es "Otro" |
 | **Cerrar jornada** | Km final | Obligatorio, numérico entero, > km de salida del último traslado (RN-05) |
 | | Foto odómetro | Obligatoria (RN-07) |
 | **Rechazar jornada** | Comentario | Obligatorio, mínimo 10 caracteres (RN-11) |
