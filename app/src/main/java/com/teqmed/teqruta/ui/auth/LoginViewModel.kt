@@ -49,6 +49,9 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
                 ResultadoLogin.CredencialesInvalidas -> _estado.update {
                     it.copy(cargando = false, errorGeneral = "Correo o contraseña incorrectos")
                 }
+                is ResultadoLogin.SinConexion -> _estado.update {
+                    it.copy(cargando = false, errorGeneral = resultado.mensaje)
+                }
                 ResultadoLogin.UsuarioInactivo -> _estado.update {
                     it.copy(
                         cargando = false,

@@ -132,8 +132,7 @@ class TramosViewModel(private val adminRepository: AdminRepository) : ViewModel(
                     kmOficial = Validators.parsearDecimal(f.km) ?: 0.0,
                     peaje = f.peaje.trim().toIntOrNull() ?: 0,
                     vigenteDesde = Validators.parsearFecha(f.vigenteDesde) ?: System.currentTimeMillis()
-                ),
-                versionAnterior = anterior
+                )
             )
                 .onSuccess { form.value = null }
                 .onFailure { e -> form.update { it?.copy(guardando = false, errorGeneral = e.message) } }

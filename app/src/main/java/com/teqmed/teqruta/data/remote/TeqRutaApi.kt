@@ -15,8 +15,15 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-/** Endpoints de la API Flask (carpeta `server/`). Los nombres de campo coinciden con las entidades de Room. */
+/**
+ * Endpoints de la API Flask (carpeta `server/`). La app lee y escribe sus datos solo a través de
+ * ellos. Los nombres de campo coinciden con las clases de data/local/entity.
+ */
 interface TeqRutaApi {
+
+    /** Devuelve el usuario si el correo y la contraseña son correctos; 401 o 403 si no. */
+    @POST("login")
+    suspend fun login(@Body credenciales: CredencialesDto): Usuario
 
     @GET("catalogos")
     suspend fun catalogos(): CatalogosDto
@@ -37,13 +44,21 @@ interface TeqRutaApi {
     @POST("tarifas")
     suspend fun registrarTarifa(@Body tarifa: TarifaCombustible): TarifaCombustible
 
+    @GET("vehiculos/{id}/ultimo-km")
+    suspend fun ultimoKm(@Path("id") vehiculoId: Long): UltimoKmDto
+
     /** Jornadas que el usuario puede ver, modificadas después de [desde] (milisegundos). */
     @GET("jornadas")
-    suspend fun jornadas(@Query("usuarioId") usuarioId: Long, @Query("desde") desde: Long): JornadasDto
+    suspend fun jornadas(@Query("usuarioId") usuarioId: Long, @Query("desde") desde: Long = 0): JornadasDto
 
+    /** Crea o actualiza la jornada con sus traslados; el servidor recalcula los costos. */
     @PUT("jornadas/{uuid}")
     suspend fun subirJornada(@Path("uuid") uuid: String, @Body jornada: JornadaDto): JornadaDto
 }
+
+data class CredencialesDto(val email: String, val password: String)
+
+data class UltimoKmDto(val kmFinal: Int?)
 
 data class CatalogosDto(
     val usuarios: List<Usuario>,
@@ -59,8 +74,9 @@ data class JornadasDto(
     val jornadas: List<JornadaDto>
 )
 
-/** Jornada con sus traslados, identificada por uuid (los ids locales no sirven entre dispositivos). */
+/** Jornada con sus traslados. El servidor asigna los ids; el uuid lo genera la app al crearla. */
 data class JornadaDto(
+    val id: Long,
     val uuid: String,
     val tecnicoId: Long,
     val vehiculoId: Long,
@@ -80,6 +96,7 @@ data class JornadaDto(
 )
 
 data class TrasladoDto(
+    val id: Long,
     val uuid: String,
     val orden: Int,
     val origenId: Long,

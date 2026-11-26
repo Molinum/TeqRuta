@@ -1,99 +1,77 @@
 package com.teqmed.teqruta.data.repository
 
-import androidx.room.withTransaction
-import com.teqmed.teqruta.data.local.AppDatabase
 import com.teqmed.teqruta.data.local.entity.Destino
 import com.teqmed.teqruta.data.local.entity.TarifaCombustible
 import com.teqmed.teqruta.data.local.entity.Tramo
 import com.teqmed.teqruta.data.local.entity.TramoConNombres
 import com.teqmed.teqruta.data.local.entity.Usuario
 import com.teqmed.teqruta.data.local.entity.Vehiculo
-import com.teqmed.teqruta.data.remote.ApiConfig
+import com.teqmed.teqruta.data.remote.DatosRemotos
 import com.teqmed.teqruta.data.remote.TeqRutaApi
-import com.teqmed.teqruta.data.remote.mensajeDeError
 import kotlinx.coroutines.flow.Flow
-import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.flow.map
 
 /**
  * Mantenedores del administrador: destinos, vehículos, tramos, tarifas y usuarios.
  * Nada se elimina: lo que tiene registros asociados se desactiva (RN-13).
  *
- * Con la API configurada el servidor es la fuente de verdad del catálogo: el cambio se envía
- * primero allí (que valida y asigna los ids) y luego se baja a Room; sin conexión no se puede
- * modificar. Sin API, los cambios se guardan directamente en Room.
+ * Cada cambio se envía a la API, que lo valida y asigna los ids; luego se vuelve a pedir el
+ * catálogo para que todas las pantallas lo muestren.
  */
 class AdminRepository(
-    private val db: AppDatabase,
     private val api: () -> TeqRutaApi,
-    private val sync: Sincronizador = SinSincronizacion
+    private val datos: DatosRemotos
 ) {
 
-    private val destinoDao = db.destinoDao()
-    private val vehiculoDao = db.vehiculoDao()
-    private val tramoDao = db.tramoDao()
-    private val tarifaDao = db.tarifaDao()
-    private val usuarioDao = db.usuarioDao()
-
-    /** Ejecuta [local] sin API, o [remoto] y luego refresca el catálogo desde el servidor. */
-    private suspend fun escribir(local: suspend () -> Unit, remoto: suspend () -> Unit): Result<Unit> {
-        if (!ApiConfig.habilitada) {
-            local()
-            return Result.success(Unit)
-        }
-        return try {
-            remoto()
-            sync.descargarCatalogos().getOrThrow()
-            Result.success(Unit)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Result.failure(ReglaNegocioException(mensajeDeError(e)))
-        }
+    private suspend fun escribir(remoto: suspend () -> Unit): Result<Unit> = llamarApi {
+        remoto()
+        datos.cargarCatalogo()
+        Unit
     }
 
-    fun observarDestinos(): Flow<List<Destino>> = destinoDao.observarTodos()
+    fun observarDestinos(): Flow<List<Destino>> = datos.observarCatalogo().map { cat ->
+        cat.destinos.sortedWith(compareBy({ it.ciudad }, { it.nombre }))
+    }
 
-    suspend fun guardarDestino(destino: Destino): Result<Unit> = escribir(
-        local = { if (destino.id == 0L) destinoDao.insertar(destino) else destinoDao.actualizar(destino) },
-        remoto = { api().guardarDestino(destino) }
-    )
+    suspend fun guardarDestino(destino: Destino): Result<Unit> = escribir { api().guardarDestino(destino) }
 
-    fun observarVehiculos(): Flow<List<Vehiculo>> = vehiculoDao.observarTodos()
+    fun observarVehiculos(): Flow<List<Vehiculo>> = datos.observarCatalogo().map { cat ->
+        cat.vehiculos.sortedBy { it.descripcion }
+    }
 
-    suspend fun guardarVehiculo(vehiculo: Vehiculo): Result<Unit> = escribir(
-        local = { if (vehiculo.id == 0L) vehiculoDao.insertar(vehiculo) else vehiculoDao.actualizar(vehiculo) },
-        remoto = { api().guardarVehiculo(vehiculo) }
-    )
+    suspend fun guardarVehiculo(vehiculo: Vehiculo): Result<Unit> = escribir { api().guardarVehiculo(vehiculo) }
 
-    fun observarUsuarios(): Flow<List<Usuario>> = usuarioDao.observarTodos()
+    fun observarUsuarios(): Flow<List<Usuario>> = datos.observarCatalogo().map { cat ->
+        cat.usuarios.sortedBy { it.nombre }
+    }
 
-    suspend fun guardarUsuario(usuario: Usuario): Result<Unit> = escribir(
-        local = { if (usuario.id == 0L) usuarioDao.insertar(usuario) else usuarioDao.actualizar(usuario) },
-        remoto = { api().guardarUsuario(usuario) }
-    )
+    suspend fun guardarUsuario(usuario: Usuario): Result<Unit> = escribir { api().guardarUsuario(usuario) }
 
-    fun observarTramos(): Flow<List<TramoConNombres>> = tramoDao.observarTodosConNombres()
+    /** Todas las versiones de todos los tramos, con los nombres de origen y destino. */
+    fun observarTramos(): Flow<List<TramoConNombres>> = datos.observarCatalogo().map { cat ->
+        val nombres = cat.destinos.associate { it.id to it.nombre }
+        cat.tramos
+            .mapNotNull { t ->
+                val origen = nombres[t.origenId] ?: return@mapNotNull null
+                val destino = nombres[t.destinoId] ?: return@mapNotNull null
+                TramoConNombres(t, origen, destino)
+            }
+            .sortedWith(
+                compareBy<TramoConNombres>({ it.origenNombre }, { it.destinoNombre })
+                    .thenByDescending { it.tramo.vigenteDesde }
+                    .thenByDescending { it.tramo.id }
+            )
+    }
 
     /**
-     * Crea el tramo, o una nueva versión si ya existe uno para el par (RF-ADM-04): la versión
-     * anterior se cierra en la fecha de vigencia de la nueva y se conserva.
+     * Crea el tramo, o una nueva versión si ya existe uno para el par (RF-ADM-04): el servidor
+     * cierra la versión anterior en la fecha de vigencia de la nueva y la conserva.
      */
-    suspend fun guardarTramo(nuevo: Tramo, versionAnterior: Tramo?): Result<Unit> = escribir(
-        local = {
-            db.withTransaction {
-                if (versionAnterior != null) {
-                    tramoDao.actualizar(versionAnterior.copy(vigenteHasta = nuevo.vigenteDesde))
-                }
-                tramoDao.insertar(nuevo)
-            }
-        },
-        remoto = { api().guardarTramo(nuevo) }
-    )
+    suspend fun guardarTramo(nuevo: Tramo): Result<Unit> = escribir { api().guardarTramo(nuevo) }
 
-    fun observarTarifas(): Flow<List<TarifaCombustible>> = tarifaDao.observarHistorial()
+    fun observarTarifas(): Flow<List<TarifaCombustible>> = datos.observarCatalogo().map { cat ->
+        cat.tarifas.sortedByDescending { it.vigenteDesde }
+    }
 
-    suspend fun registrarTarifa(tarifa: TarifaCombustible): Result<Unit> = escribir(
-        local = { tarifaDao.insertar(tarifa) },
-        remoto = { api().registrarTarifa(tarifa) }
-    )
+    suspend fun registrarTarifa(tarifa: TarifaCombustible): Result<Unit> = escribir { api().registrarTarifa(tarifa) }
 }

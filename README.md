@@ -12,7 +12,7 @@ Proyecto de la asignatura Desarrollo de Aplicaciones Móviles (DSY1105), Duoc UC
 
 ## Estado del proyecto
 
-En desarrollo para la Evaluación Final Transversal (EFT): proyecto completo con app, servidor y sincronización.
+En desarrollo para la Evaluación Final Transversal (EFT): app Android que lee y escribe todos sus datos a través de una API REST propia.
 
 ### Funcionalidades implementadas
 
@@ -32,7 +32,7 @@ En desarrollo para la Evaluación Final Transversal (EFT): proyecto completo con
 - Gerencia: costo de traslados por cliente, técnico y vehículo en un mes (solo jornadas validadas), con el detalle de traslados de cada fila y el % de desviación por técnico.
 - Administrador: mantenedores de destinos, vehículos, tramos oficiales (cada edición crea una versión con fecha de vigencia), tarifa de combustible con historial y usuarios (rol y jefe a cargo). Lo que ya tiene registros se desactiva, no se elimina.
 - Cálculo de costo: km oficiales ÷ rendimiento del vehículo × precio del litro + peaje. Se marca desviación cuando los km declarados superan a los oficiales en más de 15% y en más de 2 km.
-- Base de datos local con Room, precargada con datos de ejemplo (sede, clínicas, tramos, vehículos, tarifa, usuarios y seis jornadas de los últimos 20 días en distintos estados).
+- API REST propia (Flask + SQLite) como única fuente de datos, precargada con datos de ejemplo (sede, clínicas, tramos, vehículos, tarifa, usuarios y seis jornadas en distintos estados). El servidor valida el login y las reglas de negocio y recalcula los costos.
 - Recursos nativos: GPS y cámara.
 - Animaciones: mensajes de error, transiciones entre pantallas, cambios de estado y chips de color.
 
@@ -59,7 +59,7 @@ El detalle está en [`docs/TeqRuta_notas.md`](docs/TeqRuta_notas.md) (plan de de
 
 - Kotlin y Jetpack Compose (Material 3)
 - Arquitectura MVVM
-- Room (sobre SQLite) para persistencia local
+- Room: la base local sigue en el proyecto (`data/local`) pero la app no la usa por ahora
 - Navigation Compose
 - Google Play Services Location (GPS)
 - Cámara del dispositivo mediante FileProvider
@@ -68,41 +68,28 @@ El detalle está en [`docs/TeqRuta_notas.md`](docs/TeqRuta_notas.md) (plan de de
 
 ## Almacenamiento de datos
 
-La app usa dos bases de datos:
+La app **no guarda datos en el teléfono**: todo se lee y se escribe a través de la API REST de la carpeta [`server/`](server/README.md), que usa SQLite (`server/teqruta.db`).
 
-| | Base local | Base central |
-|---|---|---|
-| Dónde | En el dispositivo | En el servidor ([`server/`](server/README.md)) |
-| Tecnología | Room (SQLite) | Flask + SQLite (`server/teqruta.db`), expuesta como API REST |
-| Para qué | La app lee y escribe siempre aquí, por eso funciona sin conexión | Reúne las jornadas de todos los técnicos, es dueña del catálogo y recalcula los costos |
+- Al abrir cada pantalla la app pide los datos al servidor, y cada acción (iniciar jornada, registrar un traslado, validar, editar el catálogo) se envía al servidor, que la valida y responde con el resultado.
+- El servidor es el que valida el login y recalcula los costos con el catálogo vigente.
+- La base local Room (`data/local`) queda en el proyecto, sin usarse, para poder volver a agregar el trabajo sin conexión más adelante.
 
-Ambas se sincronizan: la app sube las jornadas con cambios pendientes y baja el catálogo y las jornadas que el usuario puede ver. Cada jornada y traslado tiene un `uuid` generado en el dispositivo, así no se duplican. Sin conexión, lo pendiente se reenvía en la siguiente sincronización.
-
-La conexión se activa con una sola constante, `API_URL`: si está vacía (valor por defecto) la app no hace ninguna llamada de red y trabaja solo con Room.
+Sin conexión con el servidor la app no puede iniciar sesión ni guardar cambios: lo indica con un mensaje y una nube tachada en el botón de actualizar de la barra superior.
 
 ## Estructura del proyecto
 
 ```
 app/src/main/java/com/teqmed/teqruta/
 ├── data/
-│   ├── local/        Room: entidades, DAOs, base de datos y datos de ejemplo
-│   ├── remote/       Retrofit: API, configuración (ApiConfig) y mapeos
-│   ├── repository/   Repositorios por área (auth, jornadas, catálogo, admin, reportes)
-│   └── sync/         Sincronización con el servidor
+│   ├── local/        Clases de datos (entity); los DAOs y la base Room no se usan por ahora
+│   ├── remote/       Retrofit: API, configuración (ApiConfig) y DatosRemotos
+│   └── repository/   Repositorios por área (auth, jornadas, catálogo, admin, reportes)
 ├── device/           GPS y almacenamiento de fotos
 ├── domain/           Reglas de negocio: cálculo de costo, desviación, validaciones y reportes
 └── ui/               Pantallas Compose y ViewModels por rol (tecnico, jefe, gerencia, admin)
 server/               API REST en Flask + SQLite
 docs/                 Requisitos y plan de desarrollo
 ```
-
-## Servidor y sincronización (opcional)
-
-```bash
-cd server && ./run.sh --ngrok      # levanta la API y muestra la URL pública
-```
-
-Pega esa URL en `API_URL` de `app/src/main/java/com/teqmed/teqruta/data/remote/ApiConfig.kt` y vuelve a ejecutar la app: aparece un botón de sincronizar en la barra superior. Los detalles (modos de conexión, endpoints, reglas y limitaciones) están en [`server/README.md`](server/README.md).
 
 ## Cómo ejecutar
 
@@ -112,16 +99,33 @@ Requisitos:
 - JDK 17 o superior (incluido con Android Studio)
 - Emulador o dispositivo con Android 7.0 (API 24) o superior. Para el GPS se recomienda un emulador con imagen "Google Play" o "Google APIs".
 
+- Python 3 para el servidor
+
 Pasos:
 
 1. Clonar el repositorio:
    ```
    git clone https://github.com/Molinum/TeqRuta.git
    ```
-2. Abrir la carpeta `TeqRuta` en Android Studio y esperar a que termine la sincronización de Gradle.
-3. Seleccionar un emulador o dispositivo y presionar **Run**.
-4. Iniciar sesión con alguno de los usuarios de prueba.
+2. Levantar el servidor (la primera vez instala Flask y crea la base con los datos de ejemplo):
+   ```
+   cd TeqRuta/server && ./run.sh
+   ```
+3. Abrir la carpeta `TeqRuta` en Android Studio y esperar a que termine la sincronización de Gradle.
+4. Seleccionar un emulador y presionar **Run**. La app se conecta a `http://10.0.2.2:5000`, que desde el emulador es el computador. Para usar un teléfono, levantar el servidor con `./run.sh --ngrok` y poner la URL que muestra en `API_URL` de `app/src/main/java/com/teqmed/teqruta/data/remote/ApiConfig.kt` (más opciones en [`server/README.md`](server/README.md)).
+5. Iniciar sesión con alguno de los usuarios de prueba.
 
 Para probar el GPS en el emulador: abrir los controles extendidos del emulador (botón **⋯**) → **Location**, elegir un punto y presionar **Set location**. Si se niega el permiso de ubicación, los traslados se registran igual, marcados sin ubicación.
 
-Si la app ya estaba instalada de una versión anterior (cambió el esquema de la base de datos), desinstalarla primero para que la base de datos se cree con los datos de ejemplo.
+Para volver a los datos de ejemplo: `./run.sh --reset` en la carpeta `server`.
+
+## Pruebas
+
+- App (pruebas unitarias de las reglas de negocio: cálculo de costo, desviación, validación automática, reportes y validaciones de formularios):
+  ```
+  ./gradlew testDebugUnitTest
+  ```
+- Servidor (pruebas de la API):
+  ```
+  cd server && .venv/bin/python -m unittest -v test_app
+  ```

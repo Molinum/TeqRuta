@@ -6,9 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.teqmed.teqruta.data.remote.ApiConfig
-import com.teqmed.teqruta.ui.components.LocalSincronizacion
-import com.teqmed.teqruta.ui.components.SyncControl
+import com.teqmed.teqruta.ui.components.ControlActualizacion
+import com.teqmed.teqruta.ui.components.LocalActualizacion
 import com.teqmed.teqruta.ui.SessionViewModel
 import com.teqmed.teqruta.ui.ViewModelFactory
 import com.teqmed.teqruta.ui.navigation.TeqRutaNavGraph
@@ -20,11 +19,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val app = application as TeqRutaApp
         val factory = ViewModelFactory(app)
-        // Sin API configurada no hay botón de sincronizar ni llamadas de red
-        val sincronizacion = if (ApiConfig.habilitada) SyncControl(app.sync.estado, app.sync::sincronizarAhora) else null
+        val actualizacion = ControlActualizacion(app.datos.estado, app.datos::actualizarTodo)
         setContent {
             TeqRutaTheme {
-                CompositionLocalProvider(LocalSincronizacion provides sincronizacion) {
+                CompositionLocalProvider(LocalActualizacion provides actualizacion) {
                     val sesion: SessionViewModel = viewModel(factory = factory)
                     TeqRutaNavGraph(factory = factory, sesion = sesion)
                 }

@@ -54,7 +54,7 @@ fun TeqRutaTopBar(
             }
         },
         actions = {
-            if (onCerrarSesion != null) BotonSincronizar()
+            if (onCerrarSesion != null) BotonActualizar()
             acciones()
             if (onCerrarSesion != null) {
                 IconButton(onClick = { confirmarSalida = true }) {
