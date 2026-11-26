@@ -8,7 +8,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-/** Cliente HTTP hacia la API. Solo se crea si [ApiConfig.habilitada]. */
+/** Cliente HTTP hacia la API. */
 object ApiClient {
 
     val api: TeqRutaApi by lazy {

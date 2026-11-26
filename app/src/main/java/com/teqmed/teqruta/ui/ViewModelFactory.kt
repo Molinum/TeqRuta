@@ -39,7 +39,7 @@ class ViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         val viewModel: ViewModel = when (modelClass) {
-            SessionViewModel::class.java -> SessionViewModel(app.sync)
+            SessionViewModel::class.java -> SessionViewModel { app.datos.usuarioId = it }
             LoginViewModel::class.java -> LoginViewModel(app.authRepository)
             TecnicoHomeViewModel::class.java -> TecnicoHomeViewModel(
                 usuario(), app.jornadaRepository, app.catalogoRepository, app.locationProvider

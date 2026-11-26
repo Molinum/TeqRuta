@@ -1,37 +1,34 @@
 package com.teqmed.teqruta.data.repository
 
-import com.teqmed.teqruta.data.local.dao.UsuarioDao
 import com.teqmed.teqruta.data.local.entity.Usuario
-import com.teqmed.teqruta.domain.auth.PasswordHasher
+import com.teqmed.teqruta.data.remote.CredencialesDto
+import com.teqmed.teqruta.data.remote.TeqRutaApi
+import com.teqmed.teqruta.data.remote.mensajeDeError
+import retrofit2.HttpException
+import kotlin.coroutines.cancellation.CancellationException
 
 sealed interface ResultadoLogin {
     data class Exito(val usuario: Usuario) : ResultadoLogin
     data object CredencialesInvalidas : ResultadoLogin
     data object UsuarioInactivo : ResultadoLogin
+    data class SinConexion(val mensaje: String) : ResultadoLogin
 }
 
-class AuthRepository(
-    private val usuarioDao: UsuarioDao,
-    private val sync: Sincronizador = SinSincronizacion
-) {
+/** Inicio de sesión contra la API: la contraseña la valida el servidor. */
+class AuthRepository(private val api: () -> TeqRutaApi) {
 
-    suspend fun login(email: String, password: String): ResultadoLogin {
-        val resultado = intentarLogin(email, password)
-        if (resultado != ResultadoLogin.CredencialesInvalidas) return resultado
-        // Quizá el usuario es nuevo o cambió su clave en el servidor: se actualiza el catálogo y se reintenta
-        return if (sync.descargarCatalogos().isSuccess) intentarLogin(email, password) else resultado
-    }
-
-    private suspend fun intentarLogin(email: String, password: String): ResultadoLogin {
-        val usuario = usuarioDao.obtenerPorEmail(email.trim().lowercase())
-            ?: return ResultadoLogin.CredencialesInvalidas
-        // Mismo mensaje si el correo no existe o la contraseña no coincide (RF-AUT-01)
-        if (!PasswordHasher.coincide(password, usuario.passwordHash)) {
-            return ResultadoLogin.CredencialesInvalidas
+    suspend fun login(email: String, password: String): ResultadoLogin = try {
+        ResultadoLogin.Exito(api().login(CredencialesDto(email.trim().lowercase(), password)))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: HttpException) {
+        when (e.code()) {
+            // Mismo mensaje si el correo no existe o la contraseña no coincide (RF-AUT-01)
+            401 -> ResultadoLogin.CredencialesInvalidas
+            403 -> ResultadoLogin.UsuarioInactivo
+            else -> ResultadoLogin.SinConexion(mensajeDeError(e))
         }
-        if (!usuario.activo) return ResultadoLogin.UsuarioInactivo
-        return ResultadoLogin.Exito(usuario)
+    } catch (e: Exception) {
+        ResultadoLogin.SinConexion(mensajeDeError(e))
     }
-
-    suspend fun obtenerUsuario(id: Long): Usuario? = usuarioDao.obtenerPorId(id)
 }
