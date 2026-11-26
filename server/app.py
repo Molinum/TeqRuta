@@ -1,8 +1,8 @@
 """API REST de TeqRuta (Flask + SQLite).
 
-Es la fuente de verdad del catálogo (usuarios, vehículos, destinos, tramos, tarifas) y
-concentra las jornadas de todos los técnicos. La app funciona sin conexión con Room y se
-sincroniza con esta API: sube lo pendiente y baja los cambios.
+Es la única fuente de datos de la app: guarda el catálogo (usuarios, vehículos, destinos,
+tramos, tarifas) y las jornadas de todos los técnicos. La app lee y escribe solo a través de
+esta API; el servidor valida las reglas de negocio y recalcula los costos.
 
 Uso:  python app.py            (crea teqruta.db con datos de ejemplo si no existe)
       python app.py --reset    (borra y recrea la base de datos)
@@ -18,6 +18,7 @@ from flask import Flask, g, jsonify, request
 
 import costos
 import seed
+from seed import sha256
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("TEQRUTA_DB", os.path.join(BASE, "teqruta.db"))
@@ -162,7 +163,11 @@ def a_dict(r, booleanos=()):
 
 
 def usuario_dict(r):
-    return a_dict(r, ("activo",))
+    """Usuario sin el hash de su contraseña: el login lo valida el servidor y el hash no sale de aquí."""
+    d = a_dict(r, ("activo",))
+    if d is not None:
+        d["passwordHash"] = ""
+    return d
 
 
 def guardar(tabla, columnas, valores, id_existente):
@@ -189,6 +194,18 @@ def id_de(d):
 @app.get("/api/health")
 def health():
     return jsonify(ok=True, servicio="teqruta", ahora=ahora_ms())
+
+
+@app.post("/api/login")
+def login():
+    """Valida correo y contraseña. Mismo mensaje si el correo no existe o la clave no coincide (RF-AUT-01)."""
+    d = cuerpo()
+    usuario = fila("SELECT * FROM usuarios WHERE email = ?", texto(d, "email", "El correo").lower())
+    if not usuario or usuario["passwordHash"] != sha256(texto(d, "password", "La contraseña")):
+        raise ApiError("Correo o contraseña incorrectos", 401)
+    if not usuario["activo"]:
+        raise ApiError("Tu usuario está desactivado. Contacta al administrador.", 403)
+    return jsonify(usuario_dict(usuario))
 
 
 @app.get("/api/catalogos")
@@ -262,14 +279,18 @@ def guardar_usuario():
     email = texto(d, "email", "El correo").lower()
     if not REGEX_CORREO.match(email):
         raise ApiError("Correo inválido")
-    password_hash = texto(d, "passwordHash", "La contraseña")
     rol = opcion(d, "rol", "El rol", ROLES)
     jefe_id = d.get("jefeId") if rol == "TECNICO" else None
     if rol == "TECNICO" and not fila("SELECT 1 FROM usuarios WHERE id = ? AND rol = 'JEFE' AND activo = 1", jefe_id):
         raise ApiError("El técnico necesita un jefe activo a cargo")
     activo = 1 if d.get("activo", True) else 0
-    if id_ and not fila("SELECT 1 FROM usuarios WHERE id = ?", id_):
+    actual = fila("SELECT * FROM usuarios WHERE id = ?", id_) if id_ else None
+    if id_ and not actual:
         raise ApiError("Usuario no encontrado", 404)
+    # Al editar sin escribir una contraseña nueva se conserva la actual
+    password_hash = (d.get("passwordHash") or "").strip() or (actual["passwordHash"] if actual else "")
+    if not password_hash:
+        raise ApiError("La contraseña es obligatoria")
     if fila("SELECT 1 FROM usuarios WHERE email = ? AND id != ?", email, id_):
         raise ApiError("Ya existe un usuario con ese correo")
     nuevo = guardar("usuarios", ("nombre", "email", "passwordHash", "rol", "jefeId", "activo"),
@@ -331,15 +352,22 @@ CAMPOS_TRASLADO = ("uuid", "orden", "origenId", "destinoId", "tramoId", "horaSal
 
 
 def jornada_dict(r):
-    """Jornada con sus traslados, sin los ids internos del servidor: los dispositivos usan el uuid."""
+    """Jornada con sus traslados. Los ids los asigna el servidor; el uuid lo genera la app al crearla."""
     d = a_dict(r, ("validacionAutomatica",))
-    del d["id"]
     d["traslados"] = []
     for t in db().execute("SELECT * FROM traslados WHERE jornadaId = ? ORDER BY orden", (r["id"],)):
         t = dict(t)
-        del t["id"], t["jornadaId"]
+        del t["jornadaId"]
         d["traslados"].append(t)
     return d
+
+
+@app.get("/api/vehiculos/<int:vehiculo_id>/ultimo-km")
+def ultimo_km(vehiculo_id):
+    """Km final de la última jornada cerrada del vehículo, de cualquier técnico (último odómetro conocido)."""
+    r = fila("SELECT kmFinal FROM jornadas WHERE vehiculoId = ? AND kmFinal IS NOT NULL ORDER BY fin DESC LIMIT 1",
+             vehiculo_id)
+    return jsonify(kmFinal=r["kmFinal"] if r else None)
 
 
 @app.get("/api/jornadas")
@@ -389,6 +417,13 @@ def subir_jornada(uuid):
         "comentarioJefe": d.get("comentarioJefe"),
         "validacionAutomatica": 1 if d.get("validacionAutomatica") else 0,
     }
+    if valores["estado"] == "ABIERTA":
+        # Un técnico tiene a lo más una jornada abierta y un vehículo está en una sola (RN-06)
+        if fila("SELECT 1 FROM jornadas WHERE tecnicoId = ? AND estado = 'ABIERTA' AND uuid != ?", tecnico, uuid):
+            raise ApiError("Ya tienes una jornada abierta", 409)
+        if fila("SELECT 1 FROM jornadas WHERE vehiculoId = ? AND estado = 'ABIERTA' AND uuid != ?",
+                vehiculo["id"], uuid):
+            raise ApiError("El vehículo está en uso en otra jornada abierta", 409)
     if valores["estado"] == "RECHAZADA" and not (valores["comentarioJefe"] or "").strip():
         raise ApiError("Para rechazar una jornada el comentario es obligatorio")
 
@@ -407,13 +442,16 @@ def subir_jornada(uuid):
     if existente:
         guardar("jornadas", columnas, datos, existente["id"])
         jornada_id = existente["id"]
-        conexion.execute("DELETE FROM traslados WHERE jornadaId = ?", (jornada_id,))
     else:
         jornada_id = guardar("jornadas", ("uuid", *columnas), (uuid, *datos), None)
+    # Los traslados se actualizan por uuid para que conserven su id entre escrituras
+    uuids = [t["uuid"] for t in filas_traslado]
+    conexion.execute(f"DELETE FROM traslados WHERE jornadaId = ? AND uuid NOT IN ({', '.join('?' * len(uuids))})",
+                     (jornada_id, *uuids))
     for t in filas_traslado:
-        conexion.execute(
-            f"INSERT INTO traslados (jornadaId, {', '.join(CAMPOS_TRASLADO)}) "
-            f"VALUES (?{', ?' * len(CAMPOS_TRASLADO)})", (jornada_id, *(t[c] for c in CAMPOS_TRASLADO)))
+        actual = fila("SELECT id FROM traslados WHERE uuid = ?", t["uuid"])
+        guardar("traslados", ("jornadaId", *CAMPOS_TRASLADO), (jornada_id, *(t[c] for c in CAMPOS_TRASLADO)),
+                actual["id"] if actual else None)
     conexion.commit()
     return jsonify(jornada_dict(fila("SELECT * FROM jornadas WHERE id = ?", jornada_id)))
 
