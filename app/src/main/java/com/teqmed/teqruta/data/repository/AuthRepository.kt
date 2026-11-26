@@ -10,9 +10,19 @@ sealed interface ResultadoLogin {
     data object UsuarioInactivo : ResultadoLogin
 }
 
-class AuthRepository(private val usuarioDao: UsuarioDao) {
+class AuthRepository(
+    private val usuarioDao: UsuarioDao,
+    private val sync: Sincronizador = SinSincronizacion
+) {
 
     suspend fun login(email: String, password: String): ResultadoLogin {
+        val resultado = intentarLogin(email, password)
+        if (resultado != ResultadoLogin.CredencialesInvalidas) return resultado
+        // Quizá el usuario es nuevo o cambió su clave en el servidor: se actualiza el catálogo y se reintenta
+        return if (sync.descargarCatalogos().isSuccess) intentarLogin(email, password) else resultado
+    }
+
+    private suspend fun intentarLogin(email: String, password: String): ResultadoLogin {
         val usuario = usuarioDao.obtenerPorEmail(email.trim().lowercase())
             ?: return ResultadoLogin.CredencialesInvalidas
         // Mismo mensaje si el correo no existe o la contraseña no coincide (RF-AUT-01)

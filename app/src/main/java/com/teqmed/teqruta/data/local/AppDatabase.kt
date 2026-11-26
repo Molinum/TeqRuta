@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
         Jornada::class,
         Traslado::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -46,6 +46,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun trasladoDao(): TrasladoDao
 
     companion object {
+        private fun poblar(context: Context) {
+            CoroutineScope(Dispatchers.IO).launch { SeedData.poblar(obtener(context)) }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -60,9 +64,13 @@ abstract class AppDatabase : RoomDatabase() {
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
-                            CoroutineScope(Dispatchers.IO).launch {
-                                SeedData.poblar(obtener(context))
-                            }
+                            poblar(context)
+                        }
+
+                        // Room no llama a onCreate al recrear las tablas tras un cambio de esquema
+                        override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
+                            super.onDestructiveMigration(db)
+                            poblar(context)
                         }
                     })
                     // Durante el desarrollo: si cambia el esquema se recrea la BD

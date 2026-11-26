@@ -4,11 +4,16 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Upsert
 import com.teqmed.teqruta.data.local.entity.Destino
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DestinoDao {
+    /** Inserta o actualiza por id (sin borrar la fila, para no romper las claves foráneas). */
+    @Upsert
+    suspend fun upsertTodos(items: List<Destino>)
+
     @Insert
     suspend fun insertar(destino: Destino): Long
 
@@ -23,6 +28,9 @@ interface DestinoDao {
 
     @Query("SELECT * FROM destinos WHERE activo = 1 ORDER BY ciudad, nombre")
     fun observarActivos(): Flow<List<Destino>>
+
+    @Query("SELECT * FROM destinos ORDER BY ciudad, nombre")
+    suspend fun obtenerTodos(): List<Destino>
 
     @Query("SELECT * FROM destinos ORDER BY ciudad, nombre")
     fun observarTodos(): Flow<List<Destino>>

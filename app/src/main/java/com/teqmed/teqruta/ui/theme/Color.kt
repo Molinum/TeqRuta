@@ -4,7 +4,8 @@ import androidx.compose.ui.graphics.Color
 
 // Paleta TEQMED: azul clínico (primario), verde azulado (secundario), ámbar para advertencias.
 
-val AzulTeq = Color(0xFF0B5C8A)
+val AzulTeq = Color(0xFF0A5F94)
+val AzulTeqDegradado = Color(0xFF073F66)
 val AzulTeqContenedor = Color(0xFFCDE5F7)
 val AzulTeqOscuro = Color(0xFF001E30)
 val AzulTeqClaro = Color(0xFF93CCF5)
@@ -25,7 +26,7 @@ val AmbarClaro = Color(0xFFFFB95C)
 val AmbarProfundo = Color(0xFF482900)
 val AmbarContenedorOscuro = Color(0xFF673D00)
 
-val FondoClaro = Color(0xFFF7F9FC)
+val FondoClaro = Color(0xFFEFF3F8)
 val FondoOscuro = Color(0xFF101418)
 
 // Superficies neutras (gris azulado) para tarjetas y contenedores

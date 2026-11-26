@@ -1,5 +1,6 @@
 package com.teqmed.teqruta.ui.util
 
+import com.teqmed.teqruta.domain.model.MotivoDesvio
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -18,6 +19,10 @@ fun formatearKm(km: Int): String = NumberFormat.getIntegerInstance(LOCALE_CL).fo
 /** 108,5 km */
 fun formatearKmDecimal(km: Double): String =
     NumberFormat.getNumberInstance(LOCALE_CL).apply { maximumFractionDigits = 1 }.format(km) + " km"
+
+/** "Ruta alternativa o tráfico: cierre de calle", o null si no hay motivo. */
+fun formatearMotivo(tipo: MotivoDesvio?, detalle: String?): String? =
+    tipo?.let { if (detalle.isNullOrBlank()) it.etiqueta else "${it.etiqueta}: $detalle" }
 
 /** 14:35 */
 fun formatearHora(millis: Long): String = SimpleDateFormat("HH:mm", LOCALE_CL).format(Date(millis))

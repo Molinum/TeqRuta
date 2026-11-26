@@ -9,16 +9,28 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.teqmed.teqruta.data.local.entity.Usuario
 import com.teqmed.teqruta.domain.model.Rol
 import com.teqmed.teqruta.ui.SessionViewModel
 import com.teqmed.teqruta.ui.ViewModelFactory
 import com.teqmed.teqruta.ui.auth.LoginScreen
-import com.teqmed.teqruta.ui.components.ProximamenteScreen
+import com.teqmed.teqruta.ui.admin.AdminInicioScreen
+import com.teqmed.teqruta.ui.admin.DestinosScreen
+import com.teqmed.teqruta.ui.admin.TarifaScreen
+import com.teqmed.teqruta.ui.admin.TramosScreen
+import com.teqmed.teqruta.ui.admin.UsuariosScreen
+import com.teqmed.teqruta.ui.admin.VehiculosScreen
+import com.teqmed.teqruta.ui.gerencia.GerenciaScreen
+import com.teqmed.teqruta.ui.jefe.JefeInicioScreen
+import com.teqmed.teqruta.ui.jornada.JornadaDetalleScreen
+import com.teqmed.teqruta.ui.tecnico.HistorialScreen
 import com.teqmed.teqruta.ui.tecnico.IniciarJornadaScreen
 import com.teqmed.teqruta.ui.tecnico.RegistrarLlegadaScreen
 import com.teqmed.teqruta.ui.tecnico.RegistrarSalidaScreen
@@ -78,6 +90,7 @@ fun TeqRutaNavGraph(
                     onIniciarJornada = { navController.navigate(Routes.TECNICO_INICIAR_JORNADA) },
                     onSalir = { navController.navigate(Routes.TECNICO_SALIDA) },
                     onRegistrarLlegada = { navController.navigate(Routes.TECNICO_LLEGADA) },
+                    onHistorial = { navController.navigate(Routes.TECNICO_HISTORIAL) },
                     onCerrarSesion = cerrarSesion
                 )
             }
@@ -112,23 +125,50 @@ fun TeqRutaNavGraph(
             }
         }
 
+        composable(Routes.TECNICO_HISTORIAL) {
+            RequiereRol(usuario, Rol.TECNICO, onNoAutorizado = cerrarSesion) { actual ->
+                HistorialScreen(
+                    viewModel = viewModel(factory = factory.conUsuario(actual.id)),
+                    onVolver = { navController.popBackStack() },
+                    onAbrirJornada = { navController.navigate(Routes.tecnicoJornada(it)) }
+                )
+            }
+        }
+
+        composable(Routes.TECNICO_JORNADA, arguments = argumentoJornada) { entrada ->
+            RequiereRol(usuario, Rol.TECNICO, onNoAutorizado = cerrarSesion) { actual ->
+                JornadaDetalleScreen(
+                    viewModel = viewModel(factory = factory.conUsuario(actual.id).conJornada(entrada.jornadaId())),
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+        }
+
         composable(Routes.JEFE_INICIO) {
             RequiereRol(usuario, Rol.JEFE, onNoAutorizado = cerrarSesion) { actual ->
-                ProximamenteScreen(
-                    titulo = "Validación",
+                JefeInicioScreen(
+                    viewModel = viewModel(factory = factory.conUsuario(actual.id)),
                     subtitulo = subtituloDe(actual),
-                    descripcion = "Aquí podrás revisar y validar las jornadas de tu equipo.",
+                    onAbrirJornada = { navController.navigate(Routes.jefeJornada(it)) },
                     onCerrarSesion = cerrarSesion
+                )
+            }
+        }
+
+        composable(Routes.JEFE_JORNADA, arguments = argumentoJornada) { entrada ->
+            RequiereRol(usuario, Rol.JEFE, onNoAutorizado = cerrarSesion) { actual ->
+                JornadaDetalleScreen(
+                    viewModel = viewModel(factory = factory.conUsuario(actual.id).conJornada(entrada.jornadaId())),
+                    onVolver = { navController.popBackStack() }
                 )
             }
         }
 
         composable(Routes.GERENCIA_INICIO) {
             RequiereRol(usuario, Rol.GERENCIA, onNoAutorizado = cerrarSesion) { actual ->
-                ProximamenteScreen(
-                    titulo = "Costos de traslado",
+                GerenciaScreen(
+                    viewModel = viewModel(factory = factory),
                     subtitulo = subtituloDe(actual),
-                    descripcion = "Aquí podrás consultar el costo de traslado por cliente, técnico y vehículo.",
                     onCerrarSesion = cerrarSesion
                 )
             }
@@ -136,16 +176,53 @@ fun TeqRutaNavGraph(
 
         composable(Routes.ADMIN_INICIO) {
             RequiereRol(usuario, Rol.ADMIN, onNoAutorizado = cerrarSesion) { actual ->
-                ProximamenteScreen(
-                    titulo = "Administración",
+                AdminInicioScreen(
                     subtitulo = subtituloDe(actual),
-                    descripcion = "Aquí podrás mantener destinos, vehículos, tramos, tarifas y usuarios.",
+                    onDestinos = { navController.navigate(Routes.ADMIN_DESTINOS) },
+                    onVehiculos = { navController.navigate(Routes.ADMIN_VEHICULOS) },
+                    onTramos = { navController.navigate(Routes.ADMIN_TRAMOS) },
+                    onTarifa = { navController.navigate(Routes.ADMIN_TARIFA) },
+                    onUsuarios = { navController.navigate(Routes.ADMIN_USUARIOS) },
                     onCerrarSesion = cerrarSesion
                 )
             }
         }
+
+        composable(Routes.ADMIN_DESTINOS) {
+            RequiereRol(usuario, Rol.ADMIN, onNoAutorizado = cerrarSesion) { actual ->
+                DestinosScreen(viewModel(factory = factory.conUsuario(actual.id))) { navController.popBackStack() }
+            }
+        }
+
+        composable(Routes.ADMIN_VEHICULOS) {
+            RequiereRol(usuario, Rol.ADMIN, onNoAutorizado = cerrarSesion) { actual ->
+                VehiculosScreen(viewModel(factory = factory.conUsuario(actual.id))) { navController.popBackStack() }
+            }
+        }
+
+        composable(Routes.ADMIN_TRAMOS) {
+            RequiereRol(usuario, Rol.ADMIN, onNoAutorizado = cerrarSesion) { actual ->
+                TramosScreen(viewModel(factory = factory.conUsuario(actual.id))) { navController.popBackStack() }
+            }
+        }
+
+        composable(Routes.ADMIN_TARIFA) {
+            RequiereRol(usuario, Rol.ADMIN, onNoAutorizado = cerrarSesion) { actual ->
+                TarifaScreen(viewModel(factory = factory.conUsuario(actual.id))) { navController.popBackStack() }
+            }
+        }
+
+        composable(Routes.ADMIN_USUARIOS) {
+            RequiereRol(usuario, Rol.ADMIN, onNoAutorizado = cerrarSesion) { actual ->
+                UsuariosScreen(viewModel(factory = factory.conUsuario(actual.id))) { navController.popBackStack() }
+            }
+        }
     }
 }
+
+private val argumentoJornada = listOf(navArgument(ARG_JORNADA_ID) { type = NavType.LongType })
+
+private fun NavBackStackEntry.jornadaId(): Long = requireNotNull(arguments?.getLong(ARG_JORNADA_ID))
 
 /**
  * Muestra [contenido] solo si hay sesión y el usuario tiene el [rol] requerido; si no,

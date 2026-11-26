@@ -18,7 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocalHospital
-import androidx.compose.material.icons.outlined.LocalShipping
+import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
@@ -42,7 +42,6 @@ import com.teqmed.teqruta.ui.components.DropdownField
 import com.teqmed.teqruta.ui.components.ErrorCard
 import com.teqmed.teqruta.ui.components.TeqRutaTopBar
 import com.teqmed.teqruta.ui.util.formatearKmDecimal
-import com.teqmed.teqruta.ui.util.formatearPesos
 
 @Composable
 fun RegistrarSalidaScreen(
@@ -95,7 +94,7 @@ fun RegistrarSalidaScreen(
                     Aviso(
                         icono = Icons.Outlined.Info,
                         titulo = "Tramo oficial",
-                        texto = "${formatearKmDecimal(tramo.kmOficial)} · Peaje ${formatearPesos(tramo.peaje.toDouble())}",
+                        texto = "Distancia de referencia: ${formatearKmDecimal(tramo.kmOficial)}",
                         fondo = MaterialTheme.colorScheme.primaryContainer,
                         contenido = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -121,7 +120,7 @@ fun RegistrarSalidaScreen(
                 if (estado.guardando) {
                     CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                 } else {
-                    Icon(Icons.Outlined.LocalShipping, contentDescription = null)
+                    Icon(Icons.Outlined.Route, contentDescription = null)
                     Text("Registrar salida", modifier = Modifier.padding(start = 8.dp))
                 }
             }
